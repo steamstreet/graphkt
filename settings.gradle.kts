@@ -1,0 +1,5 @@
+include(":steamql-plugin")
+include(":steamql-runtime")
+include(":steamql-client")
+include(":steamql-client-ktor")
+include(":steamql-server-ktor")

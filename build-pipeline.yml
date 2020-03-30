@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Parameters:
+  RepositoryName:
+    Type: String
+
+Resources:
+  Artifacts:
+    Type: AWS::S3::Bucket
+
+  BuilderRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - codebuild.amazonaws.com
+                - codepipeline.amazonaws.com
+                - cloudformation.amazonaws.com
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: /
+
+  # This policies allows everything. That's probably a bad idea, but there's so much going on that
+  # it feels like the only reasonable option right now.
+  BuilderPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref BuilderRole
+      PolicyName: BuilderPolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: "*"
+            Resource: "*"
+
+  BuildGraphQL:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: BuildAndDeployGraphQLLibraries
+      ServiceRole: !GetAtt BuilderRole.Arn
+      Source:
+        Type: CODEPIPELINE
+      Artifacts:
+        Type: CODEPIPELINE
+      BadgeEnabled: false
+      Cache:
+        Location: !Join ["/", [!Ref Artifacts, "graphql-build-cache"] ]
+        Type: S3
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/java:openjdk-8
+        PrivilegedMode: true
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: GraphQLPipeline
+      RoleArn: !GetAtt BuilderRole.Arn
+      ArtifactStore:
+        Location: !Ref Artifacts
+        Type: S3
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GraphQLSourceCode
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeCommit
+                Version: 1
+              OutputArtifacts:
+                - Name: GraphQLSourceCode
+              Configuration:
+                RepositoryName: !Ref RepositoryName
+                BranchName: master
+
+        - Name: BuildAndDeploy
+          Actions:
+            - Name: BuildAndDeployGraphQL
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: 1
+              InputArtifacts:
+                - Name: GraphQLSourceCode
+              Configuration:
+                ProjectName: !Ref BuildGraphQL

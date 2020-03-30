@@ -1,0 +1,79 @@
+
+
+# ------ KOTLIN --------
+KOTLIN_VERSION=1.3.70
+KOTLIN_SERIALIZATION_VERSION=0.20.0
+KOTLIN_COROUTINES_VERSION=1.3.4
+
+org.jetbrains.kotlin:kotlin-stdlib-js=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-stdlib=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-stdlib-jdk8=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-stdlib-common=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-reflect=$KOTLIN_VERSION
+
+org.jetbrains.kotlinx:kotlinx-serialization-runtime=$KOTLIN_SERIALIZATION_VERSION
+org.jetbrains.kotlinx:kotlinx-serialization-runtime-js=$KOTLIN_SERIALIZATION_VERSION
+org.jetbrains.kotlinx:kotlinx-serialization-runtime-common=$KOTLIN_SERIALIZATION_VERSION
+
+org.jetbrains.kotlinx:kotlinx-coroutines-core=$KOTLIN_COROUTINES_VERSION
+org.jetbrains.kotlinx:kotlinx-coroutines-core-js=$KOTLIN_COROUTINES_VERSION
+org.jetbrains.kotlinx:kotlinx-coroutines-jdk8=$KOTLIN_COROUTINES_VERSION
+
+# ------ KTOR --------
+KOTLIN_KTOR_VERSION=1.3.1
+
+io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-server-test-host=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-html-builder=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-server-core=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-server-netty=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-server-host-common=$KOTLIN_KTOR_VERSION
+
+io.ktor:ktor-client-core=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-http=$KOTLIN_KTOR_VERSION
+
+io.ktor:ktor-client-core-js=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-http-js=$KOTLIN_KTOR_VERSION
+
+io.ktor:ktor-client-core-jvm=$KOTLIN_KTOR_VERSION
+io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
+
+# ------ CODE GENERATION --------
+com.squareup:kotlinpoet=1.4.4
+
+# ------ JSON --------
+JACKSON_VERSION=2.10.1
+
+com.fasterxml.jackson.module:jackson-module-kotlin=$JACKSON_VERSION
+com.fasterxml.jackson.core:jackson-core=$JACKSON_VERSION
+com.fasterxml.jackson.core:jackson-databind=$JACKSON_VERSION
+com.fasterxml.jackson.core:jackson-annotations=$JACKSON_VERSION
+com.fasterxml.jackson.datatype:jackson-datatype-jdk8=$JACKSON_VERSION
+com.fasterxml.jackson.datatype:jackson-datatype-jsr310=$JACKSON_VERSION
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml=$JACKSON_VERSION
+
+com.jayway.jsonpath:json-path=2.4.0
+
+# ------ LOGGING --------
+ch.qos.logback:logback-classic=1.2.1
+
+# ------ TESTING ----------------
+io.mockk:mockk=1.9.3
+org.amshove.kluent:kluent=1.58
+org.amshove.kluent:kluent-common=1.58
+org.amshove.kluent:kluent-js=1.58
+
+org.junit.jupiter:junit-jupiter-engine=5.5.2
+
+org.jetbrains.kotlin:kotlin-test-common=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-test-annotations-common=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-test-jvm=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-test-js=$KOTLIN_VERSION
+org.jetbrains.kotlin:kotlin-test-junit5=$KOTLIN_VERSION
+
+# ------ GRAPHQL ----------------
+com.graphql-java:graphql-java=2019-11-07T04-06-09-70d9412
+
+# ------ UTILITIES --------------
+org.apache.commons:commons-collections4=4.4
+org.apache.commons:commons-csv=1.7
