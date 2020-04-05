@@ -15,7 +15,7 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                      private val packageName: String,
                      private val outputDir: File) {
     private val file = FileSpec.builder(packageName, "graphql-query")
-    private val writerClass = ClassName("com.precisionopinion.graphql.client", "QueryWriter")
+    private val writerClass = ClassName("com.steamstreet.steamql.client", "QueryWriter")
     private val label = "Query"
 
     fun execute() {
@@ -110,7 +110,7 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
 
         schema.schemaDefinition().get().operationTypeDefinitions.forEach { operationType ->
             file.addFunction(FunSpec.builder(operationType.name)
-                    .receiver(ClassName("com.precisionopinion.graphql.client", "QueryWriter"))
+                    .receiver(ClassName("com.steamstreet.steamql.client", "QueryWriter"))
                     .addParameter(ParameterSpec.builder("block",
                             LambdaTypeName.get(ClassName(packageName, "${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())

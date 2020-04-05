@@ -40,10 +40,10 @@ Resources:
             Action: "*"
             Resource: "*"
 
-  BuildGraphQL:
+  BuildSteamQL:
     Type: AWS::CodeBuild::Project
     Properties:
-      Name: BuildAndDeployGraphQLLibraries
+      Name: BuildAndDeploySteamQL
       ServiceRole: !GetAtt BuilderRole.Arn
       Source:
         Type: CODEPIPELINE
@@ -62,7 +62,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: GraphQLPipeline
+      Name: SteamQLPipeline
       RoleArn: !GetAtt BuilderRole.Arn
       ArtifactStore:
         Location: !Ref Artifacts
@@ -70,27 +70,27 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: GraphQLSourceCode
+            - Name: SteamQLSourceCode
               ActionTypeId:
                 Category: Source
                 Owner: AWS
                 Provider: CodeCommit
                 Version: 1
               OutputArtifacts:
-                - Name: GraphQLSourceCode
+                - Name: SteamQLSourceCode
               Configuration:
                 RepositoryName: !Ref RepositoryName
                 BranchName: master
 
         - Name: BuildAndDeploy
           Actions:
-            - Name: BuildAndDeployGraphQL
+            - Name: BuildAndDeploySteamQL
               ActionTypeId:
                 Category: Build
                 Owner: AWS
                 Provider: CodeBuild
                 Version: 1
               InputArtifacts:
-                - Name: GraphQLSourceCode
+                - Name: SteamQLSourceCode
               Configuration:
-                ProjectName: !Ref BuildGraphQL
+                ProjectName: !Ref BuildSteamQL

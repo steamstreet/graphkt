@@ -13,7 +13,7 @@ class GraphQLGeneratorPlugin : Plugin<Project> {
         val task = target.tasks.register("generateGraphQLCode",
                 GraphQLCodeGenerator::class.java)
 
-        target.afterEvaluate { project ->
+        target.afterEvaluate { _ ->
             target.tasks.filter {
                 it.name.startsWith("compileKotlin")
             }.forEach {

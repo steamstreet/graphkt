@@ -19,7 +19,7 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
 
     fun execute() {
         file.addImport("com.fasterxml.jackson.module.kotlin", "jacksonObjectMapper")
-        file.addImport("com.precisionopinion.graphql.server", "graphQLJackson", "convert")
+        file.addImport("com.steamstreet.steamql.server", "graphQLJackson", "convert")
 
         file.addProperty(PropertySpec.builder("jackson",
                 ClassName("com.fasterxml.jackson.databind", "ObjectMapper")).apply {
