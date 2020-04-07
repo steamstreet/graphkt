@@ -1,9 +1,7 @@
 package com.steamstreet.steamql.generator
 
 import com.squareup.kotlinpoet.*
-import graphql.language.InputObjectTypeDefinition
-import graphql.language.NonNullType
-import graphql.language.ObjectTypeDefinition
+import graphql.language.*
 import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
@@ -72,6 +70,8 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
 
                                                     if (inputType is InputObjectTypeDefinition) {
                                                         addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
+                                                    } else if (inputType is EnumTypeDefinition) {
+                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name}.name)}")""")
                                                     } else {
                                                         addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name})}")""")
                                                     }

@@ -4,6 +4,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.PropertySpec
+import graphql.language.EnumTypeDefinition
 import graphql.language.InputObjectTypeDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
@@ -42,6 +43,8 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
                                 val typeName = getTypeName(schema, it.type, packageName = packageName)
                                 if (inputType is InputObjectTypeDefinition) {
                                     """graphQLJackson.convert(it.getArgument<Map<String,Any>>("${it.name}"))"""
+                                } else if (inputType is EnumTypeDefinition) {
+                                    """it.getArgument<String>("${it.name}").let { ${typeName}.valueOf(it!!) }"""
                                 } else {
                                     """it.getArgument<${typeName}>("${it.name}")"""
                                 }
