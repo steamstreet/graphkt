@@ -47,10 +47,10 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
                     .copy(nullable = true)
 
             primaryConstructor(FunSpec.constructorBuilder().apply {
-                addParameter("data", ClassName(packageName, "${type}Data"))
+                addParameter(ParameterSpec.builder("data", ClassName(packageName, "${type}Data").copy(nullable = true)).defaultValue("null").build())
                 addParameter(ParameterSpec.builder("errors", errorList).defaultValue("null").build())
             }.build())
-            addProperty(PropertySpec.builder("data", ClassName(packageName, "${type}Data")).initializer("data").build())
+            addProperty(PropertySpec.builder("data", ClassName(packageName, "${type}Data").copy(nullable = true)).initializer("data").build())
             addProperty(PropertySpec.builder("errors", errorList).initializer("errors").build())
         }.build())
     }
@@ -73,7 +73,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
                     .beginControlFlow("if (!responseEnvelope.errors.isNullOrEmpty())")
                     .addStatement("throw GraphQLClientException(responseEnvelope.errors, responseEnvelope.data)")
                     .endControlFlow()
-                    .addStatement("return responseEnvelope.data")
+                    .addStatement("return responseEnvelope.data!!")
                     .build())
         }
     }
@@ -94,7 +94,11 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 
             typeDef.fieldDefinitions.forEach { field ->
                 val typeName = getTypeName(schema, field.type, "Data", packageName)
-                addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).initializer(field.name).build())
+                addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).initializer(field.name).also { property ->
+                    schema.buildSerializableAnnotation(field.type)?.let {
+                        property.addAnnotation(it)
+                    }
+                }.build())
             }
         }.build())
     }
@@ -139,6 +143,10 @@ fun getTypeName(schema: TypeDefinitionRegistry, type: Type<Type<*>>, postfix: St
                     val schemaType = schema.types().values.find { it.name == typeName?.name }
                     if (schemaType is EnumTypeDefinition) {
                         simpleName = typeName?.name ?: ""
+                    } else {
+                        schema.scalars().values.find { it.name == typeName?.name }?.let {
+                            simpleName = typeName?.name ?: ""
+                        }
                     }
                 }
             }

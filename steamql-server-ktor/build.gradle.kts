@@ -14,6 +14,8 @@ dependencies {
 
     implementation("ch.qos.logback:logback-classic")
 
+    api(project(":steamql-runtime"))
+
     implementation("io.ktor:ktor-server-host-common")
     implementation("io.ktor:ktor-server-core")
 
