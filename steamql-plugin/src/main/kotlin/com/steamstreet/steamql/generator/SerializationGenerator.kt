@@ -27,6 +27,9 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
                 is InputObjectTypeDefinition -> {
 
                 }
+                is InterfaceTypeDefinition -> {
+                    buildInterface(typeDef)
+                }
             }
         }
 
@@ -37,6 +40,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 
         file.build().writeTo(outputDir)
     }
+
 
     fun buildRootClass(type: String) {
         file.addType(TypeSpec.classBuilder("${type}Response").apply {
@@ -78,10 +82,32 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
         }
     }
 
+
+    fun buildInterface(typeDef: InterfaceTypeDefinition) {
+        file.addType(TypeSpec.interfaceBuilder(typeDef.name + "Data").apply {
+            typeDef.fieldDefinitions.forEach { field ->
+                val typeName = getTypeName(schema, field.type, "Data", packageName)
+                addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).also { property ->
+                    schema.buildSerializableAnnotation(field.type)?.let {
+                        property.addAnnotation(it)
+                    }
+                }.build())
+            }
+        }.build())
+    }
+
     fun buildObjectType(typeDef: ObjectTypeDefinition) {
+        val implementClasses = typeDef.implements.map {
+            getTypeName(schema, it, "Data", packageName).copy(nullable = false)
+        }
+
         file.addType(TypeSpec.classBuilder(typeDef.name + "Data").apply {
             addModifiers(KModifier.DATA)
             addAnnotation(ClassName("kotlinx.serialization", "Serializable"))
+
+            implementClasses.forEach {
+                addSuperinterface(it)
+            }
 
             primaryConstructor(FunSpec.constructorBuilder().apply {
                 typeDef.fieldDefinitions.forEach { field ->
@@ -92,9 +118,14 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
                 }
             }.build())
 
+            val overriddenFields = schema.getOverriddenFields(typeDef)
+
             typeDef.fieldDefinitions.forEach { field ->
                 val typeName = getTypeName(schema, field.type, "Data", packageName)
                 addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).initializer(field.name).also { property ->
+                    if (overriddenFields.find { it.name == field.name } != null) {
+                        property.modifiers.add(KModifier.OVERRIDE)
+                    }
                     schema.buildSerializableAnnotation(field.type)?.let {
                         property.addAnnotation(it)
                     }

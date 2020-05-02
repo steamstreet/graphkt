@@ -34,6 +34,6 @@ fun TypeDefinitionRegistry.buildSerializableAnnotation(type: Type<Type<*>>): Ann
     return findSerializer(type)?.let { serializer ->
         AnnotationSpec.builder(
                 ClassName("kotlinx.serialization", "Serializable")
-        ).addMember("""with=${serializer.reflectionName()}::class""").build()
+        ).addMember("""with=%T::class""", serializer).build()
     }
 }

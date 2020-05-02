@@ -20,28 +20,30 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
         file.suppress("unused", "UNUSED_CHANGED_VALUE")
 
         schema.types().values.forEach { type ->
-            when (type) {
-                is ObjectTypeDefinition -> {
-                    file.addType(TypeSpec.classBuilder("${type.name}$label")
-                            .primaryConstructor(FunSpec.constructorBuilder()
-                                    .addParameter("writer", writerClass)
-                                    .build())
-                            .addProperty(PropertySpec.builder("writer", writerClass)
-                                    .initializer("writer")
-                                    .addModifiers(KModifier.PRIVATE)
-                                    .build())
-                            .apply {
-                                type.fieldDefinitions?.forEach { field ->
-                                    val baseType = baseType(field.type)
-                                    val foundType = schema.types().values.find {
-                                        it.name == (baseType as TypeName).name
-                                    }
-                                    val requiresBlock = foundType is ObjectTypeDefinition
-                                    if (requiresBlock || !field.inputValueDefinitions.isNullOrEmpty()) {
-                                        addFunction(FunSpec.builder(field.name).apply {
-                                            field.inputValueDefinitions.forEach {
-                                                addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())
-                                            }
+            if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
+                file.addType(TypeSpec.classBuilder("${type.name}$label")
+                        .primaryConstructor(FunSpec.constructorBuilder()
+                                .addParameter("writer", writerClass)
+                                .build())
+                        .addProperty(PropertySpec.builder("writer", writerClass)
+                                .initializer("writer")
+                                .addModifiers(KModifier.PRIVATE)
+                                .build())
+                        .apply {
+                            val fields = if (type is ObjectTypeDefinition) type.fieldDefinitions
+                            else if (type is InterfaceTypeDefinition) type.fieldDefinitions
+                            else null
+                            fields?.forEach { field ->
+                                val baseType = baseType(field.type)
+                                val foundType = schema.types().values.find {
+                                    it.name == (baseType as TypeName).name
+                                }
+                                val requiresBlock = foundType is ObjectTypeDefinition || foundType is InterfaceTypeDefinition
+                                if (requiresBlock || !field.inputValueDefinitions.isNullOrEmpty()) {
+                                    addFunction(FunSpec.builder(field.name).apply {
+                                        field.inputValueDefinitions.forEach {
+                                            addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())
+                                        }
                                             if (requiresBlock) {
                                                 addParameter(ParameterSpec.builder("block",
                                                         LambdaTypeName.get(ClassName(packageName, "${foundType?.name}$label"),
@@ -104,7 +106,6 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                                 }
                             }
                             .build())
-                }
             }
         }
 

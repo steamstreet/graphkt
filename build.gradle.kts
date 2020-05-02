@@ -50,11 +50,6 @@ buildscript {
     dependencies {
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${libraryVersions["KOTLIN_VERSION"]}")
         classpath("org.jetbrains.kotlin:kotlin-serialization:${libraryVersions["KOTLIN_VERSION"]}")
-
-        classpath("com.github.jengelman.gradle.plugins:shadow:${libraryVersions["SHADOW_JAR_VERSION"]}")
-        classpath("de.sebastianboegl.gradle.plugins:shadow-log4j-transformer:2.1.1")
-
-        classpath("com.amazonaws:aws-java-sdk-core:1.11.679")
     }
 
     repositories(repos)
@@ -88,12 +83,6 @@ subprojects {
     this.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions.jvmTarget = "1.8"
         kotlinOptions.freeCompilerArgs = listOf("-Xuse-experimental=kotlin.Experimental")
-    }
-
-    tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
-        this.archiveBaseName.set(project.name)
-        archiveClassifier.set(null as String?)
-        archiveVersion.set(null as String?)
     }
 
     configure<PublishingExtension> {
