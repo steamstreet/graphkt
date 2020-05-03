@@ -1,10 +1,8 @@
 package com.steamstreet.steamql.generator
 
 import com.squareup.kotlinpoet.*
-import graphql.language.EnumTypeDefinition
-import graphql.language.InputObjectTypeDefinition
-import graphql.language.ObjectTypeDefinition
-import graphql.language.StringValue
+import com.squareup.kotlinpoet.TypeName
+import graphql.language.*
 import graphql.schema.idl.ScalarInfo
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
@@ -30,9 +28,15 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
         file.addFunction(FunSpec.builder("initWiring")
                 .receiver(ClassName("graphql.schema.idl", "RuntimeWiring").nestedClass("Builder"))
                 .apply {
-                    schema.types().values.mapNotNull { it as? ObjectTypeDefinition }.forEach { typeDef ->
+                    schema.types().values.filter {
+                        it is ObjectTypeDefinition || it is InterfaceTypeDefinition
+                    }.forEach { typeDef ->
+                        val fields = if (typeDef is ObjectTypeDefinition) typeDef.fieldDefinitions
+                        else if (typeDef is InterfaceTypeDefinition) typeDef.fieldDefinitions
+                        else emptyList()
+
                         beginControlFlow("type(%S)", typeDef.name)
-                        typeDef.fieldDefinitions?.filter {
+                        fields?.filter {
                             !it.inputValueDefinitions.isNullOrEmpty()
                         }?.forEach {
                             beginControlFlow("it.dataFetcher(%S)", it.name)
@@ -58,6 +62,13 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
                             addStatement("it.getSource<${typeDef.name}>().${it.name}($parameters)", *args.toTypedArray())
                             endControlFlow()
                         }
+
+                        if (typeDef is InterfaceTypeDefinition) {
+                            beginControlFlow("it.typeResolver")
+                            addStatement("null")
+                            endControlFlow()
+                        }
+
                         addStatement("it")
                         endControlFlow()
                     }
