@@ -4,6 +4,7 @@ import graphql.schema.idl.SchemaParser
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import java.io.File
@@ -15,6 +16,14 @@ open class GraphQLCodeGenerator : DefaultTask() {
     @InputFile
     fun getSchema(): File {
         return File(project.graphQL().schema)
+    }
+
+    @InputFiles
+    fun getSchemaFiles(): List<File> {
+        val schemaFile = getSchema()
+        return schemaFile.parentFile.listFiles { dir, name ->
+            name != schemaFile.name && name.endsWith(".graphql")
+        }?.toList() ?: emptyList()
     }
 
     @OutputDirectory
@@ -34,8 +43,14 @@ open class GraphQLCodeGenerator : DefaultTask() {
             throw GradleException("You must specify a path to the schema file")
         }
 
-        val schemaText = schemaFile.readText()
-        val schema = SchemaParser().parse(schemaText)
+        val parser = SchemaParser()
+        val schema = parser.parse(schemaFile)
+
+        val schemaFiles = getSchemaFiles()
+        schemaFiles.forEach {
+            val nested = parser.parse(it)
+            schema.merge(nested)
+        }
 
         val outputDir = getGeneratedOutputDir()
         outputDir.mkdirs()

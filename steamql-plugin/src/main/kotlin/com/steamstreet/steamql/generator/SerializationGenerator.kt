@@ -102,7 +102,9 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
         }
 
         file.addType(TypeSpec.classBuilder(typeDef.name + "Data").apply {
-            addModifiers(KModifier.DATA)
+            if (typeDef.fieldDefinitions.size > 0) {
+                addModifiers(KModifier.DATA)
+            }
             addAnnotation(ClassName("kotlinx.serialization", "Serializable"))
 
             implementClasses.forEach {

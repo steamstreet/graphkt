@@ -7,6 +7,7 @@ import graphql.GraphQLError
 import graphql.schema.idl.RuntimeWiring
 import graphql.schema.idl.SchemaGenerator
 import graphql.schema.idl.SchemaParser
+import graphql.schema.idl.TypeDefinitionRegistry
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.http.ContentType
@@ -30,11 +31,15 @@ interface GraphQLConfiguration<Q, M> {
     fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
 }
 
+fun <Q, M> Route.graphQL(schema: String, block: GraphQLConfiguration<Q, M>.() -> Unit) {
+    graphQL(listOf(schema), block)
+}
+
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
 @Suppress("BlockingMethodInNonBlockingContext")
-fun <Q, M> Route.graphQL(schema: String, block: GraphQLConfiguration<Q, M>.() -> Unit) {
+fun <Q, M> Route.graphQL(schemas: List<String>, block: GraphQLConfiguration<Q, M>.() -> Unit) {
     val jackson = jacksonObjectMapper()
 
     var queryGetter: (suspend (ApplicationCall) -> Q)? = null
@@ -65,8 +70,15 @@ fun <Q, M> Route.graphQL(schema: String, block: GraphQLConfiguration<Q, M>.() ->
             wiringInit?.invoke(this)
         }.build()
 
+        val parser = SchemaParser()
+        var typeRegistry: TypeDefinitionRegistry? = null
+        schemas.forEach {
+            parser.parse(it)?.let {
+                typeRegistry = typeRegistry?.merge(it) ?: it
+            }
+        }
         val graphQLSchema = SchemaGenerator().makeExecutableSchema(
-                SchemaParser().parse(schema), wiring)
+                typeRegistry, wiring)
         return GraphQL.newGraphQL(graphQLSchema).build()
     }
 
