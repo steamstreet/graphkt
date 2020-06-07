@@ -43,6 +43,7 @@ class DataTypesGenerator(val schema: TypeDefinitionRegistry,
             val inputTypeClass = TypeSpec.classBuilder(inputType.name).apply {
                 addAnnotation(ClassName("kotlinx.serialization", "Serializable"))
 
+                addModifiers(KModifier.DATA)
                 inputType.comments?.forEach {
                     this.addKdoc(it.content)
                 }
