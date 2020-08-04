@@ -13,6 +13,15 @@ dependencies {
 
     api("com.graphql-java:graphql-java")
     api("com.squareup:kotlinpoet")
+
+    testImplementation("org.amshove.kluent:kluent")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
+    testImplementation("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.junit.jupiter:junit-jupiter-params")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 gradlePlugin {

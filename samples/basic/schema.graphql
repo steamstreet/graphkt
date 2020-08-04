@@ -1,0 +1,43 @@
+schema {
+    query: Query
+}
+
+scalar ASampleScalar
+
+type Query {
+    aStr: String
+    aInt: Int
+    aBool: Boolean
+    aFloat: Float
+
+    aNonNull: String!
+
+    ListNullableStrings: [String]
+    ListNotNullStrings: [String!]
+    NonNullListNullableContent: [String]!
+    NonNullListNotNullContent: [String!]!
+
+    Another: Another
+    ListOfAnother: [Another!]
+
+    aScalar: ASampleScalar
+}
+
+type Another {
+    anotherString: String!
+
+    doSomething(input: SomeInput!): Boolean
+
+    inputString(input: String): String
+    inputStringNonNull(input: String!): String
+
+    inputInt(input: Int): String
+    inputBoolean(input: Boolean!): String
+
+    inputList(input: [String]!): Boolean
+    inputListClass(input: [SomeInput]!): Boolean
+}
+
+input SomeInput {
+    value: String!
+}

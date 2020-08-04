@@ -1,6 +1,8 @@
 package com.steamstreet.steamql.generator
 
-import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.TypeName
 import graphql.language.*
 import graphql.schema.idl.ScalarInfo
@@ -16,15 +18,7 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
 
 
     fun execute() {
-        file.addImport("com.fasterxml.jackson.module.kotlin", "jacksonObjectMapper")
-        file.addImport("com.steamstreet.steamql.server", "graphQLJackson", "convert")
-        file.addImport("com.steamstreet.steamql.server", "steamQlJson")
-
-        file.addProperty(PropertySpec.builder("jackson",
-                ClassName("com.fasterxml.jackson.databind", "ObjectMapper")).apply {
-            initializer("jacksonObjectMapper()")
-        }.build())
-
+        file.suppress("unused", "NestedLambdaShadowedImplicitParameter")
         file.addFunction(FunSpec.builder("initWiring")
                 .receiver(ClassName("graphql.schema.idl", "RuntimeWiring").nestedClass("Builder"))
                 .apply {
@@ -65,7 +59,13 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
 
                         if (typeDef is InterfaceTypeDefinition) {
                             beginControlFlow("it.typeResolver")
-                            addStatement("null")
+                            addStatement("val obj = it.getObject<Entity>()")
+                            beginControlFlow("when (obj)")
+                            getAllImplementedEntities(typeDef).forEach {
+                                addStatement("is ${it.name} -> it.schema.getObjectType(\"${it.name}\")")
+                            }
+                            addStatement("else -> null")
+                            endControlFlow()
                             endControlFlow()
                         }
 
@@ -91,5 +91,21 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
                 .build())
 
         file.build().writeTo(outputDir)
+    }
+
+    fun getAllImplementedEntities(interfaceDef: InterfaceTypeDefinition): List<ObjectTypeDefinition> {
+        val interfaceName = interfaceDef.name
+
+        return schema.types().values.mapNotNull {
+            (it as? ObjectTypeDefinition)
+        }.filter { t ->
+            val interfaces = t.implements?.mapNotNull {
+                getTypeName(schema, it, packageName = packageName).copy(nullable = false)
+            } ?: emptyList()
+
+            interfaces.map {
+                (it as ClassName).simpleName
+            }.contains(interfaceName)
+        }
     }
 }

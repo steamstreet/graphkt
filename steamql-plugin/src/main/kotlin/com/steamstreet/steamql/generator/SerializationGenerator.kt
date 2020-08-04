@@ -140,8 +140,8 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 fun getTypeName(schema: TypeDefinitionRegistry, type: Type<Type<*>>, postfix: String = "", packageName: String): TypeName {
     return when (type) {
         is ListType -> {
-            val baseClass = getTypeName(schema, type.type, postfix, packageName).copy(nullable = false)
-            ClassName("kotlin.collections", "List").parameterizedBy(baseClass)
+            val baseClass = getTypeName(schema, type.type, postfix, packageName)
+            ClassName("kotlin.collections", "List").parameterizedBy(baseClass).copy(nullable = true)
         }
         is NonNullType -> {
             getTypeName(schema, type.type, postfix, packageName).copy(nullable = false)

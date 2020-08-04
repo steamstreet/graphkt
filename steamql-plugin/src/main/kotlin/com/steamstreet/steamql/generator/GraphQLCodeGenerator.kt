@@ -8,6 +8,7 @@ import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import java.io.File
+import java.util.*
 
 /**
  * The task to generate code.
@@ -16,6 +17,11 @@ open class GraphQLCodeGenerator : DefaultTask() {
     @InputFile
     fun getSchema(): File {
         return File(project.graphQL().schema)
+    }
+
+    @InputFile
+    fun getProperties(): File {
+        return File("${getSchema().nameWithoutExtension}.properties")
     }
 
     @InputFiles
@@ -57,12 +63,20 @@ open class GraphQLCodeGenerator : DefaultTask() {
 
         getServerGeneratedOutputDir().mkdirs()
 
-        DataTypesGenerator(schema, project.graphQL().basePackage, outputDir).execute()
-        QueryGenerator(schema, project.graphQL().basePackage, outputDir).execute()
-        SerializationGenerator(schema, project.graphQL().basePackage, outputDir).execute()
-        ServerInterfacesGenerator(schema, project.graphQL().basePackage, outputDir).execute()
+        val properties = Properties().also { properties ->
+            getProperties().takeIf { it.exists() }?.inputStream()?.use {
+                properties.load(it)
+            }
+        }
 
-        WiringGenerator(schema, project.graphQL().basePackage, getServerGeneratedOutputDir()).execute()
+        DataTypesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+        QueryGenerator(schema, project.graphQL().basePackage, outputDir).execute()
+//        SerializationGenerator(schema, project.graphQL().basePackage, outputDir).execute()
+        InterfacesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+
+        ImplementationGenerator(schema, project.graphQL().basePackage, outputDir).execute()
+
+//        WiringGenerator(schema, project.graphQL().basePackage, getServerGeneratedOutputDir()).execute()
 
     }
 }

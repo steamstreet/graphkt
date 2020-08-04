@@ -17,11 +17,11 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
     private val label = "Query"
 
     fun execute() {
-        file.suppress("unused", "UNUSED_CHANGED_VALUE")
+        file.suppress("unused", "UNUSED_CHANGED_VALUE", "PropertyName", "FunctionName", "ClassName")
 
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
-                file.addType(TypeSpec.classBuilder("${type.name}$label")
+                file.addType(TypeSpec.classBuilder("_${type.name}$label")
                         .primaryConstructor(FunSpec.constructorBuilder()
                                 .addParameter("writer", writerClass)
                                 .build())
@@ -36,7 +36,8 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                             fields?.forEach { field ->
                                 val baseType = baseType(field.type)
                                 val foundType = schema.types().values.find {
-                                    it.name == (baseType as TypeName).name
+                                    it.name == (((baseType as? NonNullType)?.type ?: baseType) as? TypeName)?.name
+//                                    it.name == (baseType as TypeName).name
                                 }
                                 val requiresBlock = foundType is ObjectTypeDefinition || foundType is InterfaceTypeDefinition
                                 if (requiresBlock || !field.inputValueDefinitions.isNullOrEmpty()) {
@@ -46,7 +47,7 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                                         }
                                             if (requiresBlock) {
                                                 addParameter(ParameterSpec.builder("block",
-                                                        LambdaTypeName.get(ClassName(packageName, "${foundType?.name}$label"),
+                                                        LambdaTypeName.get(ClassName(packageName, "_${foundType?.name}$label"),
                                                                 emptyList(), ClassName("kotlin", "Unit"))).build())
                                             }
 
@@ -89,7 +90,7 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                                             if (requiresBlock) {
                                                 addStatement("""writer.println(" {")""")
                                                 beginControlFlow("writer.indent")
-                                                addStatement("""${foundType?.name}${label}(it).block()""")
+                                                addStatement("""_${foundType?.name}${label}(it).block()""")
                                                 endControlFlow()
                                                 addStatement("""writer.println("}")""")
                                             }
@@ -97,11 +98,11 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                                         }.build())
                                     } else {
                                         val typeName = getTypeName(schema, baseType, packageName = packageName)
-                                        addProperty(PropertySpec.builder(field.name, typeName)
-                                                .getter(FunSpec.getterBuilder()
-                                                        .addStatement("""writer.println("${field.name}")""")
-                                                        .addStatement("""return null""").build())
-                                                .build())
+                                    addProperty(PropertySpec.builder(field.name, ClassName("kotlin", "Any").copy(true))
+                                            .getter(FunSpec.getterBuilder()
+                                                    .addStatement("""writer.println("${field.name}")""")
+                                                    .addStatement("""return null""").build())
+                                            .build())
                                     }
                                 }
                             }
@@ -113,10 +114,10 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
             file.addFunction(FunSpec.builder(operationType.name)
                     .receiver(ClassName("com.steamstreet.steamql.client", "QueryWriter"))
                     .addParameter(ParameterSpec.builder("block",
-                            LambdaTypeName.get(ClassName(packageName, "${operationType.typeName.name}$label"),
+                            LambdaTypeName.get(ClassName(packageName, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
                     .addStatement("""this.type = "${operationType.name}"""")
-                    .addStatement("""${operationType.typeName.name}Query(this).block()""")
+                    .addStatement("""_${operationType.typeName.name}Query(this).block()""")
                     .build())
         }
 

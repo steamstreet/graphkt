@@ -4,37 +4,35 @@ import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import graphql.language.EnumTypeDefinition
 import graphql.language.InputObjectTypeDefinition
-import graphql.language.StringValue
 import graphql.schema.idl.ScalarInfo
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
+import java.util.*
 
 val builtIn = ScalarInfo.STANDARD_SCALAR_DEFINITIONS.keys
 
 /**
  * Generate the types and enums used by queries and server interfaces
  */
-class DataTypesGenerator(val schema: TypeDefinitionRegistry,
-                         val packageName: String,
-                         val outputDir: File) {
-    val file = FileSpec.builder(packageName, "graphql-common")
+class DataTypesGenerator(schema: TypeDefinitionRegistry,
+                         packageName: String,
+                         properties: Properties,
+                         outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
 
+    val file = FileSpec.builder(packageName, "graphql-common")
     fun execute() {
         generateInputTypes()
-        scalarTypes()
+        scalarAliases()
         file.build().writeTo(outputDir)
     }
 
-    fun scalarTypes() {
+    private fun scalarAliases() {
         schema.customScalars().forEach { scalar ->
-            var type = ClassName("kotlin", "String")
-            scalar.directives.find { it.name == "SteamQLScalar" }?.let {
-                (it.getArgument("class")?.value as? StringValue)?.value?.let {
-                    type = ClassName(it.substringBeforeLast("."), it.substringAfterLast("."))
-                }
-            }
+            val scalarClass = scalarClass(scalar.name)
 
-            file.addTypeAlias(TypeAliasSpec.builder(scalar.name, type).build())
+            if (scalarClass == String::class.asClassName()) {
+                file.addTypeAlias(TypeAliasSpec.builder(scalar.name, String::class.asClassName()).build())
+            }
         }
     }
 
