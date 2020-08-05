@@ -5,7 +5,7 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.steamstreet:steamql-plugin:1.0.10")
+        classpath("com.steamstreet.graphkt:gradle-plugin:1.0.10")
         classpath("org.jetbrains.kotlin:kotlin-serialization:1.3.72")
     }
 }
@@ -15,7 +15,7 @@ plugins {
     kotlin("plugin.serialization") version "1.3.72"
 }
 
-apply(plugin = "com.steamstreet.steamql")
+apply(plugin = "com.steamstreet.graphkt")
 
 repositories {
     mavenLocal()
@@ -34,8 +34,8 @@ kotlin {
                 implementation(kotlin("stdlib-common"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-common:0.20.0")
 
-                api("com.steamstreet:steamql-client:1.0.10")
-                api("com.steamstreet:steamql-runtime:1.0.10")
+                api("com.steamstreet.graphkt:client:1.0.10")
+                api("com.steamstreet.graphkt:common-runtime:1.0.10")
             }
         }
 
@@ -53,8 +53,8 @@ kotlin {
             dependencies {
                 implementation(kotlin("stdlib-jdk8"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
-                implementation("com.steamstreet:steamql-client-jvm:1.0.10")
-                implementation("com.steamstreet:steamql-server-ktor:1.0.10")
+                implementation("com.steamstreet.graphkt:client-jvm:1.0.10")
+                implementation("com.steamstreet.graphkt:server-ktor:1.0.10")
 
                 api("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
             }
@@ -72,7 +72,7 @@ kotlin {
             dependencies {
                 implementation(kotlin("stdlib-js"))
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-js:0.20.0")
-                implementation("com.steamstreet:steamql-client-js:1.0.10")
+                implementation("com.steamstreet.graphkt:client-js:1.0.10")
             }
         }
 
@@ -91,7 +91,7 @@ tasks.withType<Test> {
 tasks["jsBrowserWebpack"].enabled = false
 tasks["jsBrowserProductionWebpack"].enabled = false
 
-configure<com.steamstreet.steamql.generator.GraphQLExtension> {
+configure<com.steamstreet.graphkt.generator.GraphQLExtension> {
     schema = File(projectDir, "schema.graphql").canonicalPath
     basePackage = "com.steamstreet.steamql.samples.basic"
 }
