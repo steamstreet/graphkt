@@ -4,31 +4,21 @@ phases:
   install:
     commands:
       - echo '#!/bin/bash' > /usr/local/bin/ok; echo 'if [[ "$CODEBUILD_BUILD_SUCCEEDING" == "0" ]]; then exit 1; else exit 0; fi' >> /usr/local/bin/ok; chmod +x /usr/local/bin/ok
-      - npm i -D puppeteer karma-chrome-launcher
+      #      - npm i -D puppeteer karma-chrome-launcher
 
-      # Print out missing libs
-      - echo "Missing Libs" || ldd ./node_modules/puppeteer/.local-chromium/linux-549031/chrome-linux/chrome | grep not
-
-      # Upgrade apt
-      - sudo apt-get upgrade
-
-      # Update libs
-      - sudo apt-get update
-
-      # Install apt-transport-https
-      - sudo apt-get install -y apt-transport-https
-
-      # Use apt to install the Chrome dependencies
-      - sudo apt-get install -y libxcursor1
-      - sudo apt-get install -y libgtk-3-dev
-      - sudo apt-get install -y libxss1
-      - sudo apt-get install -y libasound2
-      - sudo apt-get install -y libnspr4
-      - sudo apt-get install -y libnss3
-      - sudo apt-get install -y libx11-xcb1
-
-      # Print out missing libs
-      - echo "Missing Libs" || ldd ./node_modules/puppeteer/.local-chromium/linux-549031/chrome-linux/chrome | grep not
+      - echo Entered the install phase...
+      - apt-get update -y
+      - apt-get install apt-transport-https
+      # Setup for Yarn
+      - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+      - echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
+      # Setup for Chrome
+      - apt-get install -y software-properties-common
+      - add-apt-repository -y ppa:canonical-chromium-builds/stage
+      # Do it!
+      - apt-get update -y
+      - apt-get install -y chromium-browser
+      - apt-get install -y yarn
 
   build:
     commands:
