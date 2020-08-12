@@ -5,7 +5,6 @@ phases:
     commands:
       - echo '#!/bin/bash' > /usr/local/bin/ok; echo 'if [[ "$CODEBUILD_BUILD_SUCCEEDING" == "0" ]]; then exit 1; else exit 0; fi' >> /usr/local/bin/ok; chmod +x /usr/local/bin/ok
       - npm i -D puppeteer karma-chrome-launcher
-
   build:
     commands:
       - ./gradlew build --info -PBUILD_NUMBER=$CODEBUILD_BUILD_NUMBER
