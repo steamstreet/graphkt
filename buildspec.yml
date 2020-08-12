@@ -7,18 +7,9 @@ phases:
       #      - npm i -D puppeteer karma-chrome-launcher
 
       - echo Entered the install phase...
-      - apt-get update -y
-      - apt-get install apt-transport-https
-      # Setup for Yarn
-      - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
-      - echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
-      # Setup for Chrome
-      - apt-get install -y software-properties-common
-      - add-apt-repository -y ppa:canonical-chromium-builds/stage
-      # Do it!
-      - apt-get update -y
-      - apt-get install -y chromium-browser
-      - apt-get install -y yarn
+      - wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+      - sudo yum install ./google-chrome-stable_current_x86_64.rpm
+      - sudo ln -s /usr/bin/google-chrome-stable /usr/bin/chromium
 
   build:
     commands:
