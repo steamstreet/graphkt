@@ -6,7 +6,15 @@ plugins {
 
 kotlin {
     jvm()
-    js { browser() }
+    js {
+        browser {
+            testTask {
+                useKarma {
+                    useConfigDirectory("karma.config.d")
+                }
+            }
+        }
+    }
 }
 
 dependencies {
