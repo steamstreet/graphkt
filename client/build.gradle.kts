@@ -9,9 +9,11 @@ kotlin {
     js {
         browser {
             testTask {
-                useKarma {
-                    useConfigDirectory("karma.config.d")
-                }
+                enabled = false
+//
+//                useKarma {
+//                    useConfigDirectory("karma.config.d")
+//                }
             }
         }
     }
