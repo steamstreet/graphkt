@@ -46,7 +46,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
         file.addType(TypeSpec.classBuilder("${type}Response").apply {
             addAnnotation(ClassName("kotlinx.serialization", "Serializable"))
 
-            val errorClass = ClassName("com.steamstreet.steamql.client", "GraphQLError")
+            val errorClass = ClassName("com.steamstreet.graphkt.client", "GraphQLError")
             val errorList = ClassName("kotlin.collections", "List").parameterizedBy(errorClass)
                     .copy(nullable = true)
 
@@ -61,13 +61,13 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 
     fun buildExecutionCallers() {
         file.addImport("kotlinx.serialization.json", "Json", "JsonConfiguration")
-        file.addImport("com.steamstreet.steamql.client", "GraphQLClientException")
+        file.addImport("com.steamstreet.graphkt.client", "GraphQLClientException")
 
         schema.schemaDefinition().get().operationTypeDefinitions.forEach {
             val operationName = it.typeName.name
             file.addFunction(FunSpec.builder(it.name)
                     .addModifiers(KModifier.SUSPEND)
-                    .receiver(ClassName("com.steamstreet.steamql.client", "GraphQLClient"))
+                    .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
                     .addParameter(ParameterSpec.builder("name", String::class.asTypeName().copy(nullable = true)).defaultValue("null").build())
                     .addParameter(ParameterSpec.builder("block", LambdaTypeName.get(ClassName(packageName, "${operationName}Query"), emptyList(),
                             ClassName("kotlin", "Unit"))).build())

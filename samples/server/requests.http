@@ -1,0 +1,1 @@
+GET http://localhost:8081/graphql?query={person(id:"1000"){name,friends}}

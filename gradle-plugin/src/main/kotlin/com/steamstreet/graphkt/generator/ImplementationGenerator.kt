@@ -41,10 +41,15 @@ class ImplementationGenerator(val schema: TypeDefinitionRegistry,
                 }
 
                 else -> {
+                    val params = inputs.map { it.name }.joinToString(",").let {
+                        if (it.isNotBlank()) {
+                            "($it)"
+                        } else it
+                    }
                     if (kotlinFieldType.isNullable) {
-                        add("%L?.gqlSelect(field) ?: %T", fieldName, jsonNullType)
+                        add("%L$params?.gqlSelect(field) ?: %T", fieldName, jsonNullType)
                     } else {
-                        add("%L.gqlSelect(field)", fieldName)
+                        add("%L$params.gqlSelect(field)", fieldName)
                     }
                 }
             }
@@ -69,7 +74,7 @@ class ImplementationGenerator(val schema: TypeDefinitionRegistry,
         val inputKotlinType = getTypeName(schema, def.type, "", packageName)
 
         fun addPrimitive(str: String) {
-            add("""field.inputParameter("${fieldName}").primitive.$str${if (inputKotlinType.isNullable) "OrNull" else ""}""")
+            add("""it.inputParameter("${fieldName}").primitive.$str${if (inputKotlinType.isNullable) "OrNull" else ""}""")
         }
 
         if (inputKotlinType is ClassName) {
@@ -122,7 +127,7 @@ class ImplementationGenerator(val schema: TypeDefinitionRegistry,
             if (type is ObjectTypeDefinition) {
                 val objectType = ClassName(packageName, type.name)
 
-                val requestSelectionClass = ClassName("com.steamstreet.steamql", "RequestSelection")
+                val requestSelectionClass = ClassName("com.steamstreet.graphkt.server", "RequestSelection")
                 type.fieldDefinitions.forEach { field ->
                     val kotlinFieldType = getTypeName(schema, field.type, packageName = packageName)
                     val f = FunSpec.builder("gql_${field.name}")

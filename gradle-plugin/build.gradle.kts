@@ -40,8 +40,7 @@ val sourcesJar by tasks.registering(Jar::class) {
 
 publishing {
     publications {
-        register("mavenJava", MavenPublication::class) {
-            from(components["java"])
+        create<MavenPublication>("pluginMaven") {
             artifact(sourcesJar.get())
         }
     }
@@ -54,7 +53,6 @@ publishing {
                         fromResolutionResult()
                     }
                 }
-
             }
         }
     }

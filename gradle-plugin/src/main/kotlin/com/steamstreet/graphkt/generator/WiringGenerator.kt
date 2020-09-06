@@ -74,7 +74,7 @@ class WiringGenerator(val schema: TypeDefinitionRegistry,
                     }
 
                     val builtIn = ScalarInfo.STANDARD_SCALAR_DEFINITIONS.keys
-                    val coercingScalar = ClassName("com.steamstreet.steamql.server.ktor", "SteamQLCoercingScalar")
+                    val coercingScalar = ClassName("com.steamstreet.graphkt.server.ktor", "SteamQLCoercingScalar")
                     val scalarType = ClassName("graphql.schema", "GraphQLScalarType")
                     schema.scalars().filterKeys { !builtIn.contains(it) }.values.forEach { scalar ->
                         scalar.directives.find { it.name == "SteamQLScalar" }?.let {

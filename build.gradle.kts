@@ -78,7 +78,7 @@ subprojects {
     apply(plugin = "maven-publish")
 
     group = "com.steamstreet.graphkt"
-    version = "1.0.${this.findProperty("BUILD_NUMBER") ?: "0-SNAPSHOT"}"
+    version = "0.1.0-${this.findProperty("BUILD_NUMBER")?.let { "build$it" } ?: "SNAPSHOT"}"
 
     this.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions.jvmTarget = "1.8"

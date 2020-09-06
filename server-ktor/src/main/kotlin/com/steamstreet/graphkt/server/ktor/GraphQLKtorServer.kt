@@ -1,28 +1,22 @@
 package com.steamstreet.graphkt.server.ktor
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import graphql.GraphQL
+import com.steamstreet.graphkt.server.RequestSelection
 import graphql.GraphQLError
-import graphql.schema.idl.RuntimeWiring
-import graphql.schema.idl.SchemaGenerator
-import graphql.schema.idl.SchemaParser
-import graphql.schema.idl.TypeDefinitionRegistry
-import io.ktor.application.ApplicationCall
-import io.ktor.application.call
-import io.ktor.http.ContentType
-import io.ktor.request.receiveText
-import io.ktor.response.respondText
-import io.ktor.routing.Route
-import io.ktor.routing.get
-import io.ktor.routing.post
+import graphql.language.*
+import graphql.parser.Parser
+import io.ktor.application.*
+import io.ktor.features.*
+import io.ktor.http.*
+import io.ktor.request.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.util.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.*
 
-interface GraphQLConfiguration<Q, M> {
-    fun initWiring(block: RuntimeWiring.Builder.() -> Unit)
-
-    fun query(block: suspend (ApplicationCall) -> Q)
-    fun mutation(block: suspend (ApplicationCall) -> M)
+interface GraphQLConfiguration {
+    fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
+    fun mutation(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
 
     /**
      * Install an error handler. This won't impact the response, but will
@@ -31,31 +25,67 @@ interface GraphQLConfiguration<Q, M> {
     fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
 }
 
-fun <Q, M> Route.graphQL(schema: String, block: GraphQLConfiguration<Q, M>.() -> Unit) {
-    graphQL(listOf(schema), block)
+class ServerRequestSelection(val call: ApplicationCall,
+                             val variables: Map<String, JsonElement>,
+                             val node: Node<*>) : RequestSelection {
+    override val name: String
+        get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
+    override val children: List<RequestSelection>
+        get() {
+            val selectionSet = when (node) {
+                is Field -> node.selectionSet
+                is SelectionSet -> node
+                else -> TODO("not implemented")
+            }
+            return selectionSet.selections.map { ServerRequestSelection(call, variables, it) }
+        }
+    override val parameters: Map<String, String>
+        get() = TODO("not implemented")
+
+    override fun inputParameter(key: String): JsonElement {
+        val value = (node as Field).arguments.find { it.name == key }?.value
+        if (value is VariableReference) {
+            TODO("not implemented")
+        } else {
+            return when (value) {
+                is BooleanValue -> value.isValue.let { JsonPrimitive(it) }
+                is StringValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+                is IntValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+                is FloatValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+                else -> TODO("not implemented")
+            }
+        }
+    }
+
+    override fun variable(key: String): JsonElement {
+        return variables[key]!!
+    }
 }
 
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
+@OptIn(KtorExperimentalAPI::class)
 @Suppress("BlockingMethodInNonBlockingContext")
-fun <Q, M> Route.graphQL(schemas: List<String>, block: GraphQLConfiguration<Q, M>.() -> Unit) {
-    val jackson = jacksonObjectMapper()
+fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
+    val json = Json(JsonConfiguration.Stable)
 
-    var queryGetter: (suspend (ApplicationCall) -> Q)? = null
-    var mutationGetter: (suspend (ApplicationCall) -> M)? = null
+    fun parseQraphQLOperation(query: String): OperationDefinition {
+        val parser = Parser()
+        val result = parser.parseDocument(query)
+        return result.definitions.firstOrNull() as? OperationDefinition
+                ?: throw IllegalArgumentException("Operation was not found")
+    }
+
+    var queryGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
+    var mutationGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
     var errorHandler: (suspend (List<GraphQLError>) -> Unit)? = null
-    var wiringInit: (RuntimeWiring.Builder.() -> Unit)? = null
-    val config: GraphQLConfiguration<Q, M> = object : GraphQLConfiguration<Q, M> {
-        override fun initWiring(block: RuntimeWiring.Builder.() -> Unit) {
-            wiringInit = block
-        }
-
-        override fun query(block: suspend (ApplicationCall) -> Q) {
+    val config: GraphQLConfiguration = object : GraphQLConfiguration {
+        override fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?) {
             queryGetter = block
         }
 
-        override fun mutation(block: suspend (ApplicationCall) -> M) {
+        override fun mutation(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?) {
             mutationGetter = block
         }
 
@@ -64,25 +94,6 @@ fun <Q, M> Route.graphQL(schemas: List<String>, block: GraphQLConfiguration<Q, M
         }
     }
     config.block()
-
-    fun initializeGraphQL(): GraphQL {
-        val wiring = RuntimeWiring.newRuntimeWiring().apply {
-            wiringInit?.invoke(this)
-        }.build()
-
-        val parser = SchemaParser()
-        var typeRegistry: TypeDefinitionRegistry? = null
-        schemas.forEach {
-            parser.parse(it)?.let {
-                typeRegistry = typeRegistry?.merge(it) ?: it
-            }
-        }
-        val graphQLSchema = SchemaGenerator().makeExecutableSchema(
-                typeRegistry, wiring)
-        return GraphQL.newGraphQL(graphQLSchema).build()
-    }
-
-    val graphQL = initializeGraphQL()
 
     @Serializable
     data class GraphQLRequestEnvelope(
@@ -93,49 +104,33 @@ fun <Q, M> Route.graphQL(schemas: List<String>, block: GraphQLConfiguration<Q, M
 
     post {
         val request = call.receiveText()
-        val envelope = jackson.readValue(request, Map::class.java)
-        val context = mutationGetter?.invoke(call)
-        val result = graphQL.execute {
-            it.context(context)
-            it.root(context)
-            it.query(envelope["query"] as String)
-            it.operationName(envelope["operationName"] as? String)
-            envelope["variables"]?.let { variables ->
-                @Suppress("UNCHECKED_CAST")
-                it.variables(variables as Map<String, Any>)
-            }
-            it
-        }
-        if (!result.errors.isNullOrEmpty()) {
-            errorHandler?.invoke(result.errors!!)
-        }
-        val response = jackson.writeValueAsString(result.toSpecification())
-        call.respondText(response, ContentType.Application.Json)
+        val requestElement = json.parseJson(request) as JsonObject
+        val query = requestElement["query"]
+        val variables = requestElement["variables"]
+//        val operationName = requestElement["operationName"]?.primitive?.contentOrNull
+
+        call.respondText("", ContentType.Application.Json)
     }
 
     get {
-        val query = call.request.queryParameters["query"]
-        val variablesString = call.request.queryParameters["variables"]
-
-        val variables = if (variablesString != null) {
-            jacksonObjectMapper().readValue<Map<String, Any?>>(variablesString)
-        } else null
-
-        val context = queryGetter?.invoke(call)
-        val executionResult = graphQL.execute {
-            it.context(context)
-            it.root(context)
-
-            if (variables != null) {
-                it.variables(variables)
-            }
-
-            it.query(query)
+        val query = call.request.queryParameters["query"]?.let {
+            parseQraphQLOperation(it)
         }
-        if (!executionResult.errors.isNullOrEmpty()) {
-            errorHandler?.invoke(executionResult.errors!!)
+        val variables = call.request.queryParameters["variables"]?.let {
+            json.parseJson(it) as JsonObject
         }
-        val response = jackson.writeValueAsString(executionResult.toSpecification())
-        call.respondText(response, ContentType.Application.Json)
+
+        val node: Node<out Node<*>> = query?.children?.first() ?: throw IllegalStateException("Unknown state")
+
+        try {
+            val selection = ServerRequestSelection(call, variables ?: emptyMap(), node)
+            val result = queryGetter?.invoke(call, selection) ?: throw NotFoundException()
+            val responseEnvelope = JsonObject(mapOf("data" to result))
+
+            call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            throw t
+        }
     }
 }

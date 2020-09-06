@@ -1,4 +1,4 @@
-package com.steamstreet.graphkt
+package com.steamstreet.graphkt.server
 
 import kotlinx.serialization.json.JsonElement
 

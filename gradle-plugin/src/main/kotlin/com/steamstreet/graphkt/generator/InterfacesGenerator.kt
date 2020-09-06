@@ -73,7 +73,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                             field.comments?.forEach {
                                 this.addKdoc(it.content)
                             }
-                            addModifiers(KModifier.ABSTRACT)
+                            addModifiers(KModifier.ABSTRACT, KModifier.SUSPEND)
                             returns(fieldType)
                             field.inputValueDefinitions.forEach {
                                 addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())

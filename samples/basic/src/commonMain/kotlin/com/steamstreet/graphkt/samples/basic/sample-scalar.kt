@@ -1,4 +1,4 @@
-package com.steamstreet.steamql.samples.basic
+package com.steamstreet.graphkt.samples.basic
 
 import kotlinx.serialization.*
 

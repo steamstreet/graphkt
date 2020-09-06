@@ -13,7 +13,7 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                      private val packageName: String,
                      private val outputDir: File) {
     private val file = FileSpec.builder(packageName, "graphql-query")
-    private val writerClass = ClassName("com.steamstreet.steamql.client", "QueryWriter")
+    private val writerClass = ClassName("com.steamstreet.graphkt.client", "QueryWriter")
     private val label = "Query"
 
     fun execute() {

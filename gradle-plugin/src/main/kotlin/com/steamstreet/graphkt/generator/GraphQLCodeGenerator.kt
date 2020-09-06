@@ -3,10 +3,8 @@ package com.steamstreet.graphkt.generator
 import graphql.schema.idl.SchemaParser
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.OutputDirectory
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
+import org.gradle.api.tasks.Optional
 import java.io.File
 import java.util.*
 
@@ -20,8 +18,9 @@ open class GraphQLCodeGenerator : DefaultTask() {
     }
 
     @InputFile
-    fun getProperties(): File {
-        return File("${getSchema().nameWithoutExtension}.properties")
+    @Optional
+    fun getProperties(): File? {
+        return File("${getSchema().nameWithoutExtension}.properties").takeIf { it.exists() }
     }
 
     @InputFiles
@@ -64,7 +63,7 @@ open class GraphQLCodeGenerator : DefaultTask() {
         getServerGeneratedOutputDir().mkdirs()
 
         val properties = Properties().also { properties ->
-            getProperties().takeIf { it.exists() }?.inputStream()?.use {
+            getProperties()?.inputStream()?.use {
                 properties.load(it)
             }
         }

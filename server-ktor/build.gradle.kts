@@ -15,6 +15,7 @@ dependencies {
     implementation("ch.qos.logback:logback-classic")
 
     api(project(":common-runtime"))
+    api(project(":server"))
 
     implementation("io.ktor:ktor-server-host-common")
     implementation("io.ktor:ktor-server-core")

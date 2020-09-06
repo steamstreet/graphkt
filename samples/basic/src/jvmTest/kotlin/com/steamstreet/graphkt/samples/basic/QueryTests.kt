@@ -1,6 +1,6 @@
-package com.steamstreet.steamql.samples.basic
+package com.steamstreet.graphkt.samples.basic
 
-import com.steamstreet.steamql.client.AppendableQueryWriter
+import com.steamstreet.graphkt.client.AppendableQueryWriter
 import graphql.language.Field
 import graphql.language.OperationDefinition
 import graphql.parser.Parser
