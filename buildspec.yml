@@ -13,7 +13,7 @@ phases:
 
   build:
     commands:
-      - ./gradlew build --info -PBUILD_NUMBER=$CODEBUILD_BUILD_NUMBER
+      - ./gradlew publish --info -PBUILD_NUMBER=$CODEBUILD_BUILD_NUMBER
 
 cache:
   paths:
