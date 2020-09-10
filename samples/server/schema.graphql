@@ -3,6 +3,8 @@ schema {
     query: Query
 }
 
+scalar PhoneNumber
+
 type Query {
     person(id: String!): Person
 }
@@ -10,4 +12,6 @@ type Query {
 type Person {
     name: String
     friends: [String!]!
+
+    phoneNumber: PhoneNumber
 }

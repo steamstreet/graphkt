@@ -13,7 +13,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                           outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
 
     val file = FileSpec.builder(packageName, "graphql-interfaces")
-    val parser = FileSpec.builder(packageName, "graphql-interfaces-parser")
+    private val parser = FileSpec.builder(packageName, "graphql-interfaces-parser")
 
     fun execute() {
         parser.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
@@ -48,7 +48,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                         .build())
 
         (typeDef as? ObjectTypeDefinition)?.implements?.map {
-            getTypeName(schema, it, "", packageName).copy(nullable = false)
+            getKotlinType(it).copy(nullable = false)
         }?.forEach {
             interfaceType.addSuperinterface(it)
         }
@@ -76,7 +76,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                             addModifiers(KModifier.ABSTRACT, KModifier.SUSPEND)
                             returns(fieldType)
                             field.inputValueDefinitions.forEach {
-                                addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())
+                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
                             }
                         }.build())
             } else {
@@ -119,17 +119,16 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                 } else {
                     addStatement("return result")
                 }
-            }.build())
-                    .build())
+            }.build()).build())
 
             // add an empty declaration for the function call
             if (!field.inputValueDefinitions.isNullOrEmpty()) {
                 parserType.addFunction(FunSpec.builder(field.name)
                         .apply {
-                            addModifiers(KModifier.OVERRIDE)
+                            addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
                             returns(fieldType)
                             field.inputValueDefinitions.forEach {
-                                addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())
+                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
                             }
                             addStatement("return ${field.name}")
                         }.build())
@@ -157,8 +156,15 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                 "Float" -> addStatement("it.primitive.float${orNullText}")
                 "Boolean" -> addStatement("it.primitive.boolean${orNullText}")
                 else -> {
+                    val isScalar = schema.customScalars().find {
+                        it.name == typeName
+                    } != null
                     beginControlFlow("it.jsonObject.let")
-                    addStatement("${typeName}ResponseData(it)")
+                    if (isScalar) {
+                        addStatement("json.fromJson(%T, it)", scalarSerializer(typeName))
+                    } else {
+                        addStatement("${typeName}ResponseData(it)")
+                    }
                     endControlFlow()
                 }
             }

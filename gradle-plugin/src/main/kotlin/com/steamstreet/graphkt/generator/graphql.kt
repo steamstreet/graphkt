@@ -2,11 +2,40 @@ package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
-import graphql.language.NonNullType
-import graphql.language.ScalarTypeDefinition
-import graphql.language.StringValue
-import graphql.language.Type
+import graphql.language.*
 import graphql.schema.idl.TypeDefinitionRegistry
+
+fun baseType(type: Type<Type<*>>): Type<Type<*>> {
+    var actualType = type
+    if (actualType is NonNullType) {
+        actualType = (actualType as NonNullType).type
+    }
+    if (actualType is ListType) {
+        actualType = (actualType as ListType).type
+    }
+    return actualType
+}
+
+fun TypeDefinitionRegistry.findType(type: Type<Type<*>>): TypeDefinition<out TypeDefinition<*>>? {
+    val baseType = baseType(type)
+    return this.types().values.find {
+        it.name == (baseType as TypeName).name
+    }
+}
+
+/**
+ * Get the list of all fields that should be overridden by an object type
+ */
+fun TypeDefinitionRegistry.getOverriddenFields(typeDefinition: ObjectTypeDefinition): List<FieldDefinition> {
+    return typeDefinition.implements.mapNotNull { type ->
+        val interfaceName = ((type as graphql.language.TypeName).name)
+        types().values.find { it.name == interfaceName }
+    }.mapNotNull {
+        it as? InterfaceTypeDefinition
+    }.flatMap {
+        it.fieldDefinitions
+    }
+}
 
 fun TypeDefinitionRegistry.customScalars(): Collection<ScalarTypeDefinition> {
     return scalars().filterKeys { !builtIn.contains(it) }.values

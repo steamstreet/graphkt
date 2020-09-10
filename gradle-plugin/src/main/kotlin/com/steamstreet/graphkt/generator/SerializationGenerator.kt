@@ -2,18 +2,20 @@ package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import com.squareup.kotlinpoet.TypeName
-import graphql.language.*
-import graphql.schema.idl.SchemaParser
+import graphql.language.InputObjectTypeDefinition
+import graphql.language.InterfaceTypeDefinition
+import graphql.language.ObjectTypeDefinition
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
+import java.util.*
 
 /**
  * Generates classes used for serialization of GraphQL results.
  */
-class SerializationGenerator(val schema: TypeDefinitionRegistry,
-                             val packageName: String,
-                             val outputDir: File) {
+class SerializationGenerator(schema: TypeDefinitionRegistry,
+                             packageName: String,
+                             properties: Properties,
+                             outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
     val file = FileSpec.builder(packageName, "graphql-serializable")
 
     fun execute() {
@@ -86,7 +88,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
     fun buildInterface(typeDef: InterfaceTypeDefinition) {
         file.addType(TypeSpec.interfaceBuilder(typeDef.name + "Data").apply {
             typeDef.fieldDefinitions.forEach { field ->
-                val typeName = getTypeName(schema, field.type, "Data", packageName)
+                val typeName = getKotlinType(field.type, "Data")
                 addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).also { property ->
                     schema.buildSerializableAnnotation(field.type)?.let {
                         property.addAnnotation(it)
@@ -98,7 +100,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 
     fun buildObjectType(typeDef: ObjectTypeDefinition) {
         val implementClasses = typeDef.implements.map {
-            getTypeName(schema, it, "Data", packageName).copy(nullable = false)
+            getKotlinType(it, "Data").copy(nullable = false)
         }
 
         file.addType(TypeSpec.classBuilder(typeDef.name + "Data").apply {
@@ -113,7 +115,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
 
             primaryConstructor(FunSpec.constructorBuilder().apply {
                 typeDef.fieldDefinitions.forEach { field ->
-                    val typeName = getTypeName(schema, field.type, "Data", packageName)
+                    val typeName = getKotlinType(field.type, "Data")
                     // data fields are ALWAYS nullable when parsing data results.
                     addParameter((ParameterSpec.builder(field.name,
                             typeName.copy(nullable = true)).defaultValue("null").build()))
@@ -123,7 +125,7 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
             val overriddenFields = schema.getOverriddenFields(typeDef)
 
             typeDef.fieldDefinitions.forEach { field ->
-                val typeName = getTypeName(schema, field.type, "Data", packageName)
+                val typeName = getKotlinType(field.type, "Data")
                 addProperty(PropertySpec.builder(field.name, typeName.copy(nullable = true)).initializer(field.name).also { property ->
                     if (overriddenFields.find { it.name == field.name } != null) {
                         property.modifiers.add(KModifier.OVERRIDE)
@@ -135,62 +137,4 @@ class SerializationGenerator(val schema: TypeDefinitionRegistry,
             }
         }.build())
     }
-}
-
-fun getTypeName(schema: TypeDefinitionRegistry, type: Type<Type<*>>, postfix: String = "", packageName: String): TypeName {
-    return when (type) {
-        is ListType -> {
-            val baseClass = getTypeName(schema, type.type, postfix, packageName)
-            ClassName("kotlin.collections", "List").parameterizedBy(baseClass).copy(nullable = true)
-        }
-        is NonNullType -> {
-            getTypeName(schema, type.type, postfix, packageName).copy(nullable = false)
-        }
-        else -> {
-            val typeName = (type as? graphql.language.TypeName)
-            var typePackage = packageName
-            var simpleName = typeName?.name + postfix
-            when (typeName?.name) {
-                "String" -> {
-                    typePackage = "kotlin"
-                    simpleName = "String"
-                }
-                "Boolean" -> {
-                    typePackage = "kotlin"
-                    simpleName = "Boolean"
-                }
-                "Float" -> {
-                    typePackage = "kotlin"
-                    simpleName = "Float"
-                }
-                "Int" -> {
-                    typePackage = "kotlin"
-                    simpleName = "Int"
-                }
-                "ID" -> {
-                    typePackage = "com.steamstreet.steamql"
-                    simpleName = "ID"
-                }
-                else -> {
-                    // enum types DO NOT get a postfix
-                    val schemaType = schema.types().values.find { it.name == typeName?.name }
-                    if (schemaType is EnumTypeDefinition) {
-                        simpleName = typeName?.name ?: ""
-                    } else {
-                        schema.scalars().values.find { it.name == typeName?.name }?.let {
-                            simpleName = typeName?.name ?: ""
-                        }
-                    }
-                }
-            }
-            ClassName(typePackage, simpleName).copy(true)
-        }
-    }
-}
-
-fun main(args: Array<String>) {
-    val schemaText = File(args[0]).readText()
-    val schema = SchemaParser().parse(schemaText)
-
-    SerializationGenerator(schema, "com.test.schema", File("")).execute()
 }

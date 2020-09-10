@@ -69,13 +69,8 @@ open class GraphQLCodeGenerator : DefaultTask() {
         }
 
         DataTypesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        QueryGenerator(schema, project.graphQL().basePackage, outputDir).execute()
-//        SerializationGenerator(schema, project.graphQL().basePackage, outputDir).execute()
+        QueryGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
         InterfacesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-
-        ImplementationGenerator(schema, project.graphQL().basePackage, outputDir).execute()
-
-//        WiringGenerator(schema, project.graphQL().basePackage, getServerGeneratedOutputDir()).execute()
-
+        ImplementationGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
     }
 }

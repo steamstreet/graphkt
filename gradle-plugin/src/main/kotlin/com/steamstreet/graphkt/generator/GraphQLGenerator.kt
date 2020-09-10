@@ -12,6 +12,9 @@ import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
 import java.util.*
 
+/**
+ * Base class for the various generators in the plugin.
+ */
 open class GraphQLGenerator(
         val schema: TypeDefinitionRegistry,
         val packageName: String,
@@ -22,6 +25,12 @@ open class GraphQLGenerator(
         return properties["scalar.${name}.class"]?.toString()?.let {
             ClassName.bestGuess(it)
         } ?: String::class.asClassName()
+    }
+
+    fun scalarSerializer(name: String): ClassName? {
+        return properties["scalar.${name}.serializer"]?.toString()?.let {
+            ClassName.bestGuess(it)
+        }
     }
 
     fun isScalar(type: Type<Type<*>>): Boolean {
@@ -35,7 +44,10 @@ open class GraphQLGenerator(
         }
     }
 
-
+    /**
+     * For a given GraphQL type, get the Kotlin type. Uses the configuration for
+     * scalars.
+     */
     fun getKotlinType(type: Type<Type<*>>, postfix: String = ""): TypeName {
         return when (type) {
             is ListType -> {
@@ -51,9 +63,9 @@ open class GraphQLGenerator(
                 var simpleName = typeName?.name + postfix
 
                 if (typeName != null && isScalar(type)) {
-                    return properties["scalar.${typeName.name}.class"]?.toString()?.let {
+                    return (properties["scalar.${typeName.name}.class"]?.toString()?.let {
                         ClassName.bestGuess(it)
-                    } ?: String::class.asClassName()
+                    } ?: String::class.asClassName()).copy(true)
                 }
 
                 when (typeName?.name) {

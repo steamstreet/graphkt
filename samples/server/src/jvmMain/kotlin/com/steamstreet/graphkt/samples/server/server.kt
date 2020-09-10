@@ -41,4 +41,6 @@ class PersonImpl : Person {
     override val friends: List<String>
         get() = listOf("Jonathan", "Bill", "Reilly")
 
+    override val phoneNumber: PhoneNumber?
+        get() = TODO("not implemented")
 }

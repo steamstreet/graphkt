@@ -22,4 +22,3 @@ class GraphQLGeneratorPlugin : Plugin<Project> {
         }
     }
 }
-

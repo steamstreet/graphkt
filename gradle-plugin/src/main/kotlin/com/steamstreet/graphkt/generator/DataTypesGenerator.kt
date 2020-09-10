@@ -23,6 +23,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
     fun execute() {
         generateInputTypes()
         scalarAliases()
+        serializerModule()
         file.build().writeTo(outputDir)
     }
 
@@ -33,6 +34,41 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
             if (scalarClass == String::class.asClassName()) {
                 file.addTypeAlias(TypeAliasSpec.builder(scalar.name, String::class.asClassName()).build())
             }
+        }
+    }
+
+    private fun serializerModule() {
+        val serializers = schema.customScalars().filter { scalarSerializer(it.name) != null }
+
+        if (serializers.isNotEmpty()) {
+            file.addProperty(PropertySpec.builder("serializerModule",
+                    ClassName("kotlinx.serialization.modules", "SerialModule"))
+                    .initializer(CodeBlock.builder().apply {
+                        this.beginControlFlow("%T",
+                                ClassName("kotlinx.serialization.modules", "SerializersModule"))
+
+                        serializers.forEach { scalar ->
+                            val scalarClass = scalarClass(scalar.name)
+                            val scalarSerializer = scalarSerializer(scalar.name)
+
+                            if (scalarSerializer != null) {
+                                addStatement("contextual(%T::class, %T)",
+                                        scalarClass, scalarSerializer)
+                            }
+                        }
+
+                        this.endControlFlow()
+                    }.build())
+                    .build())
+
+            val jsonSerializerType = ClassName("kotlinx.serialization.json", "Json")
+            file.addProperty(PropertySpec.builder("json",
+                    jsonSerializerType)
+                    .addModifiers(KModifier.INTERNAL)
+                    .initializer(CodeBlock.builder().apply {
+                        addStatement("%T(context = serializerModule)", jsonSerializerType)
+                    }.build())
+                    .build())
         }
     }
 
@@ -47,8 +83,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                 }
                 primaryConstructor(FunSpec.constructorBuilder().apply {
                     inputType.inputValueDefinitions.forEach { inputValue ->
-                        val typeName = getTypeName(schema, inputValue.type,
-                                packageName = packageName)
+                        val typeName = getKotlinType(inputValue.type)
 
                         addParameter(
                                 ParameterSpec.builder(inputValue.name,
@@ -67,7 +102,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
 
                 inputType.inputValueDefinitions.forEach { inputValue ->
                     addProperty(PropertySpec.builder(inputValue.name,
-                            getTypeName(schema, inputValue.type, packageName = packageName))
+                            getKotlinType(inputValue.type))
                             .initializer(inputValue.name).build())
                 }
 
@@ -82,8 +117,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                             }.build())
 
                             val parameterTypes = inputType.inputValueDefinitions.map {
-                                getTypeName(schema, it.type,
-                                        packageName = packageName)
+                                getKotlinType(it.type)
                             }
                             addStatement("if (arg == null) return null")
 

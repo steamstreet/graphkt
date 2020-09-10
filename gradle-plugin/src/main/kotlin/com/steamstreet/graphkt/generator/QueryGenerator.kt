@@ -5,13 +5,15 @@ import graphql.language.*
 import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
+import java.util.*
 
 /**
  * Generate the query language
  */
-class QueryGenerator(private val schema: TypeDefinitionRegistry,
-                     private val packageName: String,
-                     private val outputDir: File) {
+class QueryGenerator(schema: TypeDefinitionRegistry,
+                     packageName: String,
+                     properties: Properties,
+                     outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
     private val file = FileSpec.builder(packageName, "graphql-query")
     private val writerClass = ClassName("com.steamstreet.graphkt.client", "QueryWriter")
     private val label = "Query"
@@ -37,76 +39,75 @@ class QueryGenerator(private val schema: TypeDefinitionRegistry,
                                 val baseType = baseType(field.type)
                                 val foundType = schema.types().values.find {
                                     it.name == (((baseType as? NonNullType)?.type ?: baseType) as? TypeName)?.name
-//                                    it.name == (baseType as TypeName).name
                                 }
                                 val requiresBlock = foundType is ObjectTypeDefinition || foundType is InterfaceTypeDefinition
                                 if (requiresBlock || !field.inputValueDefinitions.isNullOrEmpty()) {
                                     addFunction(FunSpec.builder(field.name).apply {
                                         field.inputValueDefinitions.forEach {
-                                            addParameter(ParameterSpec.builder(it.name, getTypeName(schema, it.type, packageName = packageName)).build())
+                                            addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
                                         }
-                                            if (requiresBlock) {
-                                                addParameter(ParameterSpec.builder("block",
-                                                        LambdaTypeName.get(ClassName(packageName, "_${foundType?.name}$label"),
-                                                                emptyList(), ClassName("kotlin", "Unit"))).build())
+                                        if (requiresBlock) {
+                                            addParameter(ParameterSpec.builder("block",
+                                                    LambdaTypeName.get(ClassName(packageName, "_${foundType?.name}$label"),
+                                                            emptyList(), ClassName("kotlin", "Unit"))).build())
+                                        }
+
+                                        addStatement("""writer.print("${field.name}")""")
+
+                                        if (!field.inputValueDefinitions.isNullOrEmpty()) {
+                                            addStatement("""writer.print("(")""")
+
+                                            if (field.inputValueDefinitions.size > 1) {
+                                                addStatement("""var count = 0""")
                                             }
 
-                                            addStatement("""writer.print("${field.name}")""")
+                                            field.inputValueDefinitions.forEach { inputDef ->
+                                                val inputType = schema.findType(inputDef.type)
 
-                                            if (!field.inputValueDefinitions.isNullOrEmpty()) {
-                                                addStatement("""writer.print("(")""")
+                                                if (inputDef.type !is NonNullType) {
+                                                    beginControlFlow("""if (${inputDef.name} != null)""")
+                                                }
 
                                                 if (field.inputValueDefinitions.size > 1) {
-                                                    addStatement("""var count = 0""")
+                                                    addStatement("""if (count++ > 0) writer.print(", ")""")
                                                 }
 
-                                                field.inputValueDefinitions.forEach { inputDef ->
-                                                    val inputType = schema.findType(inputDef.type)
-
-                                                    if (inputDef.type !is NonNullType) {
-                                                        beginControlFlow("""if (${inputDef.name} != null)""")
-                                                    }
-
-                                                    if (field.inputValueDefinitions.size > 1) {
-                                                        addStatement("""if (count++ > 0) writer.print(", ")""")
-                                                    }
-
-                                                    if (inputType is InputObjectTypeDefinition) {
-                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
-                                                    } else if (inputType is EnumTypeDefinition) {
-                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name}.name)}")""")
-                                                    } else {
-                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name})}")""")
-                                                    }
-
-                                                    if (inputDef.type !is NonNullType) {
-                                                        endControlFlow()
-                                                    }
+                                                if (inputType is InputObjectTypeDefinition) {
+                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
+                                                } else if (inputType is EnumTypeDefinition) {
+                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name}.name)}")""")
+                                                } else {
+                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name})}")""")
                                                 }
 
-                                                addStatement("""writer.print(")")""")
+                                                if (inputDef.type !is NonNullType) {
+                                                    endControlFlow()
+                                                }
                                             }
 
-                                            if (requiresBlock) {
-                                                addStatement("""writer.println(" {")""")
-                                                beginControlFlow("writer.indent")
-                                                addStatement("""_${foundType?.name}${label}(it).block()""")
-                                                endControlFlow()
-                                                addStatement("""writer.println("}")""")
-                                            }
+                                            addStatement("""writer.print(")")""")
+                                        }
 
-                                        }.build())
-                                    } else {
-                                        val typeName = getTypeName(schema, baseType, packageName = packageName)
+                                        if (requiresBlock) {
+                                            addStatement("""writer.println(" {")""")
+                                            beginControlFlow("writer.indent")
+                                            addStatement("""_${foundType?.name}${label}(it).block()""")
+                                            endControlFlow()
+                                            addStatement("""writer.println("}")""")
+                                        }
+
+                                    }.build())
+                                } else {
+                                    val typeName = getKotlinType(baseType)
                                     addProperty(PropertySpec.builder(field.name, ClassName("kotlin", "Any").copy(true))
                                             .getter(FunSpec.getterBuilder()
                                                     .addStatement("""writer.println("${field.name}")""")
                                                     .addStatement("""return null""").build())
                                             .build())
-                                    }
                                 }
                             }
-                            .build())
+                        }
+                        .build())
             }
         }
 
