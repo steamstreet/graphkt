@@ -34,8 +34,7 @@ kotlin {
             kotlin.srcDir(File(project.buildDir, "graphql/generated"))
 
             dependencies {
-                implementation(kotlin("stdlib-common"))
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-common:0.20.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.0.0-RC")
 
                 api("com.steamstreet.graphkt:client:$graphKtVersion")
                 api("com.steamstreet.graphkt:server:$graphKtVersion")
@@ -47,8 +46,6 @@ kotlin {
             kotlin.srcDir(File(project.buildDir, "graphql/server/generated"))
 
             dependencies {
-                implementation(kotlin("stdlib-jdk8"))
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
                 implementation("com.steamstreet.graphkt:server-ktor:$graphKtVersion")
                 implementation("io.ktor:ktor-server-netty:1.3.1")
             }

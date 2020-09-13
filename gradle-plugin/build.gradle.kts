@@ -7,7 +7,6 @@ plugins {
 }
 
 dependencies {
-    api(kotlin("stdlib-jdk8"))
     api("org.jetbrains.kotlin:kotlin-reflect")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
 
