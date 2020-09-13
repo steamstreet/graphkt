@@ -12,11 +12,11 @@ buildscript {
             maven("https://kotlin.bintray.com/kotlinx")
             maven("https://kotlin.bintray.com/kotlin-js-wrappers")
 
-            maven("s3://steamstreet-repository/maven/release") {
-                authentication {
-                    val awsIm by registering(AwsImAuthentication::class)
-                }
-            }
+//            maven("s3://steamstreet-repository/maven/release") {
+//                authentication {
+//                    val awsIm by registering(AwsImAuthentication::class)
+//                }
+//            }
         }
     }
 

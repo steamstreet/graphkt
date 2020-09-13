@@ -8,9 +8,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime")
-
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
 
     implementation("ch.qos.logback:logback-classic")
 

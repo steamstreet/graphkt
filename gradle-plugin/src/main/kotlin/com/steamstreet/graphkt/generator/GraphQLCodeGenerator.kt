@@ -26,7 +26,7 @@ open class GraphQLCodeGenerator : DefaultTask() {
     @InputFiles
     fun getSchemaFiles(): List<File> {
         val schemaFile = getSchema()
-        return schemaFile.parentFile.listFiles { dir, name ->
+        return schemaFile.parentFile.listFiles { _, name ->
             name != schemaFile.name && name.endsWith(".graphql")
         }?.toList() ?: emptyList()
     }

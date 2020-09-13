@@ -22,7 +22,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                               outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
     val file = FileSpec.builder(packageName, "graphql-service-mapping")
 
-    fun CodeBlock.Builder.buildFieldFetcher(fieldName: String, kotlinFieldType: TypeName, inputs: List<InputValueDefinition>) {
+    fun CodeBlock.Builder.buildFieldFetcher(fieldName: String, inputs: List<InputValueDefinition>) {
         if (inputs.isEmpty()) {
             add("%L", fieldName)
         } else {
@@ -38,7 +38,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 "kotlin.Int",
                 "kotlin.Float" -> {
                     add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
-                        buildFieldFetcher(fieldName, kotlinFieldType, inputs)
+                        buildFieldFetcher(fieldName, inputs)
                     })
                 }
 
@@ -108,17 +108,9 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 val elementType = inputKotlinType.typeArguments.first()
 
                 if (elementType is ClassName) {
-                    val serializer = when (elementType.canonicalName) {
-                        "kotlin.String" -> "String.serializer()"
-                        "kotlin.Int" -> "Int.serializer()"
-                        "kotlin.Boolean" -> "Boolean.serializer()"
-                        "kotlin.Float" -> "Float.serializer()"
-                        else -> ""
-                    }
-
                     file.addImport("kotlinx.serialization.builtins", "serializer")
 
-                    add("""json.fromJson(%T(%L), field.inputParameter("${fieldName}"))""",
+                    add("""json.fromJson(%T(%L), field.inputParameter("$fieldName"))""",
                             ClassName("kotlinx.serialization.builtins", "ListSerializer"),
                             "${elementType.simpleName}.serializer()"
                     )

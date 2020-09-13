@@ -3,19 +3,14 @@ package com.steamstreet.graphkt.client.ktor
 import com.steamstreet.graphkt.client.AppendableQueryWriter
 import com.steamstreet.graphkt.client.GraphQLClient
 import com.steamstreet.graphkt.client.QueryWriter
-import io.ktor.client.HttpClient
-import io.ktor.client.request.accept
-import io.ktor.client.request.header
-import io.ktor.client.request.request
-import io.ktor.client.request.url
-import io.ktor.content.TextContent
-import io.ktor.http.ContentType
-import io.ktor.http.HttpMethod
-import io.ktor.http.URLBuilder
+import io.ktor.client.*
+import io.ktor.client.request.*
+import io.ktor.content.*
+import io.ktor.http.*
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * GraphQL query client that uses Ktor to execute
@@ -23,7 +18,7 @@ import kotlinx.serialization.json.json
 class GraphQLKtorClient(val endpoint: String,
                         val http: HttpClient = HttpClient(),
                         val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }) : GraphQLClient {
-    private val json = Json(JsonConfiguration.Stable)
+    private val json = Json {}
 
     /**
      * Execute a query. The query can optionally be named.
@@ -38,9 +33,9 @@ class GraphQLKtorClient(val endpoint: String,
             if (it.isEmpty()) {
                 null
             } else {
-                json {
+                buildJsonObject {
                     it.forEach {
-                        it.key to it.value.value
+                        put(it.key, it.value.value)
                     }
                 }
             }
@@ -63,7 +58,7 @@ class GraphQLKtorClient(val endpoint: String,
             url(URLBuilder(endpoint).apply {
                 parameters["query"] = query
                 if (variables != null) {
-                    parameters["variables"] = json.stringify(JsonObject.serializer(), variables)
+                    parameters["variables"] = json.encodeToString(JsonObject.serializer(), variables)
                 }
             }.build())
 
@@ -83,14 +78,14 @@ class GraphQLKtorClient(val endpoint: String,
                 this.header(key, value)
             }
 
-            val envelope = json {
-                "query" to query
-                "operationName" to operationName
+            val envelope = buildJsonObject {
+                put("query", query)
+                put("operationName", operationName)
                 if (variables != null) {
-                    "variables" to variables
+                    put("variables", variables)
                 }
             }
-            val gql = json.stringify(JsonObject.serializer(), envelope)
+            val gql = json.encodeToString(JsonObject.serializer(), envelope)
             body = TextContent(gql, ContentType.parse("application/graphql"))
             accept(ContentType.Application.Json)
         }

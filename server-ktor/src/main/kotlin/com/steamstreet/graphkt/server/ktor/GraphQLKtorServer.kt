@@ -68,7 +68,7 @@ class ServerRequestSelection(val call: ApplicationCall,
 @OptIn(KtorExperimentalAPI::class)
 @Suppress("BlockingMethodInNonBlockingContext")
 fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
-    val json = Json(JsonConfiguration.Stable)
+    val json = Json {}
 
     fun parseQraphQLOperation(query: String): OperationDefinition {
         val parser = Parser()
@@ -104,7 +104,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 
     post {
         val request = call.receiveText()
-        val requestElement = json.parseJson(request) as JsonObject
+        val requestElement = json.parseToJsonElement(request) as JsonObject
         val query = requestElement["query"]
         val variables = requestElement["variables"]
 //        val operationName = requestElement["operationName"]?.primitive?.contentOrNull
@@ -117,7 +117,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             parseQraphQLOperation(it)
         }
         val variables = call.request.queryParameters["variables"]?.let {
-            json.parseJson(it) as JsonObject
+            json.parseToJsonElement(it) as JsonObject
         }
 
         val node: Node<out Node<*>> = query?.children?.first() ?: throw IllegalStateException("Unknown state")

@@ -16,8 +16,8 @@ buildscript {
 val graphKtVersion: String by project
 
 plugins {
-    kotlin("multiplatform") version "1.3.72"
-    kotlin("plugin.serialization") version "1.3.72"
+    kotlin("multiplatform") version "1.4.10"
+    kotlin("plugin.serialization") version "1.4.10"
 }
 
 apply(plugin = "com.steamstreet.graphkt")

@@ -2,7 +2,6 @@ package com.steamstreet.graphkt.client
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonConfiguration
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.random.Random
@@ -56,9 +55,12 @@ class AppendableQueryWriter(
             realKey = "$name$index"
         }
 
-        val jsonValue = Json(JsonConfiguration.Stable).toJson(serializer, value)
+        Json {
 
-        variables[realKey] = TypeAndValue(type, jsonValue)
+        }
+//        val jsonValue = Json(JsonConfiguration.Stable).toJson(serializer, value)
+
+//        variables[realKey] = TypeAndValue(type, jsonValue)
         return realKey
     }
 

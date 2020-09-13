@@ -1,7 +1,7 @@
 # ------ KOTLIN --------
-KOTLIN_VERSION=1.3.72
-KOTLIN_SERIALIZATION_VERSION=0.20.0
-KOTLIN_COROUTINES_VERSION=1.3.4
+KOTLIN_VERSION=1.4.10
+KOTLIN_SERIALIZATION_VERSION=1.0.0-RC
+KOTLIN_COROUTINES_VERSION=1.3.9
 
 org.jetbrains.kotlin:kotlin-stdlib-js=$KOTLIN_VERSION
 org.jetbrains.kotlin:kotlin-stdlib=$KOTLIN_VERSION
@@ -9,16 +9,14 @@ org.jetbrains.kotlin:kotlin-stdlib-jdk8=$KOTLIN_VERSION
 org.jetbrains.kotlin:kotlin-stdlib-common=$KOTLIN_VERSION
 org.jetbrains.kotlin:kotlin-reflect=$KOTLIN_VERSION
 
-org.jetbrains.kotlinx:kotlinx-serialization-runtime=$KOTLIN_SERIALIZATION_VERSION
-org.jetbrains.kotlinx:kotlinx-serialization-runtime-js=$KOTLIN_SERIALIZATION_VERSION
-org.jetbrains.kotlinx:kotlinx-serialization-runtime-common=$KOTLIN_SERIALIZATION_VERSION
+org.jetbrains.kotlinx:kotlinx-serialization-core=$KOTLIN_SERIALIZATION_VERSION
 
 org.jetbrains.kotlinx:kotlinx-coroutines-core=$KOTLIN_COROUTINES_VERSION
 org.jetbrains.kotlinx:kotlinx-coroutines-core-js=$KOTLIN_COROUTINES_VERSION
 org.jetbrains.kotlinx:kotlinx-coroutines-jdk8=$KOTLIN_COROUTINES_VERSION
 
 # ------ KTOR --------
-KOTLIN_KTOR_VERSION=1.3.1
+KOTLIN_KTOR_VERSION=1.4.0
 
 io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
 io.ktor:ktor-server-test-host=$KOTLIN_KTOR_VERSION
@@ -40,16 +38,6 @@ io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
 com.squareup:kotlinpoet=1.6.0
 
 # ------ JSON --------
-JACKSON_VERSION=2.10.1
-
-com.fasterxml.jackson.module:jackson-module-kotlin=$JACKSON_VERSION
-com.fasterxml.jackson.core:jackson-core=$JACKSON_VERSION
-com.fasterxml.jackson.core:jackson-databind=$JACKSON_VERSION
-com.fasterxml.jackson.core:jackson-annotations=$JACKSON_VERSION
-com.fasterxml.jackson.datatype:jackson-datatype-jdk8=$JACKSON_VERSION
-com.fasterxml.jackson.datatype:jackson-datatype-jsr310=$JACKSON_VERSION
-com.fasterxml.jackson.dataformat:jackson-dataformat-yaml=$JACKSON_VERSION
-
 com.jayway.jsonpath:json-path=2.4.0
 
 # ------ LOGGING --------

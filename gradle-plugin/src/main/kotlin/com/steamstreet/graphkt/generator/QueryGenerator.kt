@@ -98,7 +98,6 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
 
                                     }.build())
                                 } else {
-                                    val typeName = getKotlinType(baseType)
                                     addProperty(PropertySpec.builder(field.name, ClassName("kotlin", "Any").copy(true))
                                             .getter(FunSpec.getterBuilder()
                                                     .addStatement("""writer.println("${field.name}")""")
