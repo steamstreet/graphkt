@@ -34,13 +34,32 @@ open class GraphQLGenerator(
     }
 
     fun isScalar(type: Type<Type<*>>): Boolean {
-        return if (type is NonNullType) {
-            isScalar(type.type)
-        } else if (type is graphql.language.TypeName) {
-            val name = (type as? graphql.language.TypeName)?.name
-            schema.customScalars().find { it.name == name } != null
-        } else {
-            false
+        return when (type) {
+            is NonNullType -> {
+                isScalar(type.type)
+            }
+            is graphql.language.TypeName -> {
+                val name = (type as? graphql.language.TypeName)?.name
+                schema.scalars().containsKey(name)
+            }
+            else -> {
+                false
+            }
+        }
+    }
+
+    fun isCustomScalar(type: Type<Type<*>>): Boolean {
+        return when (type) {
+            is NonNullType -> {
+                isCustomScalar(type.type)
+            }
+            is graphql.language.TypeName -> {
+                val name = (type as? graphql.language.TypeName)?.name
+                schema.customScalars().find { it.name == name } != null
+            }
+            else -> {
+                false
+            }
         }
     }
 
@@ -62,13 +81,17 @@ open class GraphQLGenerator(
                 var typePackage = packageName
                 var simpleName = typeName?.name + postfix
 
-                if (typeName != null && isScalar(type)) {
+                if (typeName != null && isCustomScalar(type)) {
                     return (properties["scalar.${typeName.name}.class"]?.toString()?.let {
                         ClassName.bestGuess(it)
                     } ?: String::class.asClassName()).copy(true)
                 }
 
                 when (typeName?.name) {
+                    "ID" -> {
+                        typePackage = "com.steamstreet.graphkt"
+                        simpleName = "ID"
+                    }
                     "String" -> {
                         typePackage = "kotlin"
                         simpleName = "String"
@@ -86,7 +109,7 @@ open class GraphQLGenerator(
                         simpleName = "Int"
                     }
                     "ID" -> {
-                        typePackage = "com.steamstreet.steamql"
+                        typePackage = "com.steamstreet.graphkt"
                         simpleName = "ID"
                     }
                     else -> {

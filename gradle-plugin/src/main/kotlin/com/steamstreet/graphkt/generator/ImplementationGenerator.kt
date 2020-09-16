@@ -1,16 +1,10 @@
 package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.*
-import graphql.language.InputValueDefinition
-import graphql.language.ObjectTypeDefinition
+import graphql.language.*
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
 import java.util.*
-
-val jsonArrayType = ClassName("kotlinx.serialization.json", "JsonArray")
-val jsonElementType = ClassName("kotlinx.serialization.json", "JsonElement")
-val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
-val jsonNullType = ClassName("kotlinx.serialization.json", "JsonNull")
 
 /**
  * Generates the file that receives the requests and forwards along to the
@@ -30,7 +24,10 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
         }
     }
 
-    private fun CodeBlock.Builder.fieldInitializationCode(fieldName: String, kotlinFieldType: TypeName, inputs: List<InputValueDefinition>) {
+    private fun CodeBlock.Builder.fieldInitializationCode(fieldName: String, fieldType: Type<Type<*>>, inputs: List<InputValueDefinition>) {
+        val kotlinFieldType = getKotlinType(fieldType)
+        val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
+
         if (kotlinFieldType is ClassName) {
             when (kotlinFieldType.canonicalName) {
                 "kotlin.String",
@@ -49,16 +46,24 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                         } else it
                     }
 
+
                     val scalarSerializer = schema.scalars().keys.find {
                         properties["scalar.$it.class"] == kotlinFieldType.canonicalName
                     }?.let {
                         scalarSerializer(it)
                     }
 
-                    if (scalarSerializer != null) {
-                        if (kotlinFieldType.isNullable) {
-                            add("%L$params?.let { json.toJson(%T, it) } ?: %T", fieldName, scalarSerializer, jsonNullType)
+                    if (isScalar(baseFieldType)) {
+                        if (isCustomScalar(baseFieldType)) {
+                            if (kotlinFieldType.isNullable) {
+                                add("%L$params?.let { json.encodeToJsonElement(%T, it) } ?: %T", fieldName, scalarSerializer, jsonNullType)
+                            } else {
+                                add("%L$params.let { json.encodeToJsonElement(%T, it) } ?: throw %T()", fieldName, scalarSerializer, NullPointerExceptionClass)
+                            }
                         } else {
+                            add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
+                                buildFieldFetcher(fieldName, inputs)
+                            })
                         }
                     } else {
                         if (kotlinFieldType.isNullable) {
@@ -69,17 +74,18 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                     }
                 }
             }
-        } else if (kotlinFieldType is ParameterizedTypeName) {
-            if (kotlinFieldType.rawType == ClassName("kotlin.collections", "List")) {
-                if (kotlinFieldType.isNullable) {
-                    add("%L?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
-                        fieldInitializationCode("it", kotlinFieldType.typeArguments.first(), emptyList())
-                    }, jsonNullType)
-                } else {
-                    add("%T(%L.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
-                        fieldInitializationCode("it", kotlinFieldType.typeArguments.first(), emptyList())
-                    })
-                }
+        } else if (baseFieldType is ListType) {
+            val baseType = baseFieldType.type
+            val baseKotlinType = getKotlinType(baseType)
+
+            if (fieldType is NonNullType) {
+                add("%T(%L.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
+                    fieldInitializationCode("it", baseType, emptyList())
+                })
+            } else {
+                add("%L?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
+                    fieldInitializationCode("it", baseType, emptyList())
+                }, jsonNullType)
             }
         }
     }
@@ -87,10 +93,14 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
 
     fun CodeBlock.Builder.variableToInputParameter(def: InputValueDefinition) {
         val fieldName = def.name
+        val fieldType = def.type
+        val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
         val inputKotlinType = getKotlinType(def.type)
 
         fun addPrimitive(str: String) {
-            add("""it.inputParameter("${fieldName}").primitive.$str${if (inputKotlinType.isNullable) "OrNull" else ""}""")
+            val getterName = "$str${if (inputKotlinType.isNullable) "OrNull" else ""}"
+            file.addImport("kotlinx.serialization.json", "jsonPrimitive", getterName)
+            add("""it.inputParameter("$fieldName").jsonPrimitive.$getterName""")
         }
 
         if (inputKotlinType is ClassName) {
@@ -100,22 +110,19 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 "kotlin.Boolean" -> addPrimitive("boolean")
                 "kotlin.Float" -> addPrimitive("float")
                 else -> {
-                    add("""json.fromJson(${inputKotlinType.simpleName}.serializer(), field.inputParameter("${fieldName}"))""")
+                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), field.inputParameter("${fieldName}"))""")
                 }
             }
-        } else if (inputKotlinType is ParameterizedTypeName) {
-            if (inputKotlinType.rawType.canonicalName == "kotlin.collections.List") {
-                val elementType = inputKotlinType.typeArguments.first()
+        } else if (baseFieldType is ListType) {
+            val baseType = baseFieldType.type
+            val elementType = getKotlinType(baseType)
+            file.addImport("kotlinx.serialization.builtins", "serializer")
 
-                if (elementType is ClassName) {
-                    file.addImport("kotlinx.serialization.builtins", "serializer")
-
-                    add("""json.fromJson(%T(%L), field.inputParameter("$fieldName"))""",
-                            ClassName("kotlinx.serialization.builtins", "ListSerializer"),
-                            "${elementType.simpleName}.serializer()"
-                    )
-                }
-
+            if (elementType is ClassName) {
+                add("""json.decodeFromJsonElement(%T(%L), field.inputParameter("$fieldName"))""",
+                        ClassName("kotlinx.serialization.builtins", "ListSerializer"),
+                        "${elementType.simpleName}.serializer()"
+                )
             }
         }
     }
@@ -128,7 +135,6 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
 
                 val requestSelectionClass = ClassName("com.steamstreet.graphkt.server", "RequestSelection")
                 type.fieldDefinitions.forEach { field ->
-                    val kotlinFieldType = getKotlinType(field.type)
                     val f = FunSpec.builder("gql_${field.name}")
                             .receiver(objectType)
                             .addModifiers(KModifier.SUSPEND)
@@ -141,7 +147,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                                 }
 
                                 addCode("return %L", buildCodeBlock {
-                                    fieldInitializationCode(field.name, kotlinFieldType, field.inputValueDefinitions
+                                    fieldInitializationCode(field.name, field.type, field.inputValueDefinitions
                                             ?: emptyList())
                                 })
                             }

@@ -9,7 +9,7 @@ buildscript {
 
     dependencies {
         classpath("com.steamstreet.graphkt:gradle-plugin:$graphKtVersion")
-        classpath("org.jetbrains.kotlin:kotlin-serialization:1.3.72")
+        classpath("org.jetbrains.kotlin:kotlin-serialization:$graphKtVersion")
     }
 }
 
@@ -36,7 +36,7 @@ kotlin {
             kotlin.srcDir(File(project.buildDir, "graphql/generated"))
 
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-common:0.20.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.0.0-RC")
 
                 api("com.steamstreet.graphkt:client:$graphKtVersion")
                 api("com.steamstreet.graphkt:server:$graphKtVersion")
@@ -56,7 +56,6 @@ kotlin {
             kotlin.srcDir(File(project.buildDir, "graphql/server/generated"))
 
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime:0.20.0")
                 implementation("com.steamstreet.graphkt:client-jvm:$graphKtVersion")
                 implementation("com.steamstreet.graphkt:server:$graphKtVersion")
                 implementation("com.steamstreet.graphkt:server-ktor:$graphKtVersion")
@@ -75,7 +74,6 @@ kotlin {
 
         val jsMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-js:0.20.0")
                 implementation("com.steamstreet.graphkt:client-js:$graphKtVersion")
             }
         }

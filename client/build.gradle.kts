@@ -22,5 +22,12 @@ kotlin {
                 api(project(":common-runtime"))
             }
         }
+
+        commonTest {
+            dependencies {
+                implementation("org.jetbrains.kotlin:kotlin-test:1.4.10")
+                implementation("org.jetbrains.kotlin:kotlin-test-annotations-common:1.4.10")
+            }
+        }
     }
 }

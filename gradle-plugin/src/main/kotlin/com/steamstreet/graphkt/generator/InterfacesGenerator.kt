@@ -7,13 +7,14 @@ import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
 import java.util.*
 
+
 class InterfacesGenerator(schema: TypeDefinitionRegistry,
                           packageName: String,
                           properties: Properties,
                           outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
 
     val file = FileSpec.builder(packageName, "graphql-interfaces")
-    private val parser = FileSpec.builder(packageName, "graphql-interfaces-parser")
+    private val parser = FileSpec.builder(packageName, "graphql-responses")
 
     fun execute() {
         parser.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
@@ -143,7 +144,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
         val isNonNull = type is NonNullType
         val baseType = (type as? NonNullType)?.type ?: type
         if (baseType is ListType) {
-            beginControlFlow("it.jsonArray.map")
+            beginControlFlow("it.%T.map", jsonArrayFunction)
             jsonExtractCode(baseType.type)
             endControlFlow()
         } else if (baseType is TypeName) {
@@ -151,17 +152,26 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
             val orNullText = if (!isNonNull) "OrNull" else ""
 
             when (typeName) {
-                "String" -> addStatement("it.primitive.content${orNullText}")
-                "Int" -> addStatement("it.primitive.int${orNullText}")
-                "Float" -> addStatement("it.primitive.float${orNullText}")
-                "Boolean" -> addStatement("it.primitive.boolean${orNullText}")
+                "String" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
+                        ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                "Int" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
+                        ClassName("kotlinx.serialization.json", "int${orNullText}"))
+                "Float" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
+                        ClassName("kotlinx.serialization.json", "float${orNullText}"))
+                "Boolean" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
+                        ClassName("kotlinx.serialization.json", "boolean${orNullText}"))
                 else -> {
-                    val isScalar = schema.customScalars().find {
+                    val isScalar = schema.scalars().containsKey(typeName)
+                    val isCustomScalar = schema.customScalars().find {
                         it.name == typeName
                     } != null
-                    beginControlFlow("it.jsonObject.let")
-                    if (isScalar) {
-                        addStatement("json.fromJson(%T, it)", scalarSerializer(typeName))
+
+                    beginControlFlow("it.%T.let", jsonObjectFunction)
+                    if (isCustomScalar) {
+                        addStatement("json.decodeFromJsonElement(%T, it)", scalarSerializer(typeName))
+                    } else if (isScalar) {
+                        addStatement("it.%T.%T", jsonPrimitiveFunction,
+                                ClassName("kotlinx.serialization.json", "content${orNullText}"))
                     } else {
                         addStatement("${typeName}ResponseData(it)")
                     }

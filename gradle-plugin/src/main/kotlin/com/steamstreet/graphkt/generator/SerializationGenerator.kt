@@ -75,7 +75,7 @@ class SerializationGenerator(schema: TypeDefinitionRegistry,
                             ClassName("kotlin", "Unit"))).build())
                     .returns(TypeVariableName("${operationName}Data"))
                     .addStatement("val data = execute(name) { ${it.name} { block() } }")
-                    .addStatement("val responseEnvelope = Json(JsonConfiguration.Stable.copy(ignoreUnknownKeys=true)).parse(${operationName}Response.serializer(), data)")
+                    .addStatement("val responseEnvelope = Json { ignoreUnknownKeys=true }.parse(${operationName}Response.serializer(), data)")
                     .beginControlFlow("if (!responseEnvelope.errors.isNullOrEmpty())")
                     .addStatement("throw GraphQLClientException(responseEnvelope.errors, responseEnvelope.data)")
                     .endControlFlow()

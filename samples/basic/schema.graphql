@@ -10,6 +10,8 @@ type Query {
     aBool: Boolean
     aFloat: Float
 
+    aID: ID
+
     aNonNull: String!
 
     ListNullableStrings: [String]

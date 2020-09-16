@@ -63,6 +63,8 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
 
                                             field.inputValueDefinitions.forEach { inputDef ->
                                                 val inputType = schema.findType(inputDef.type)
+                                                val inputBaseType = (inputDef.type as? NonNullType)?.type
+                                                        ?: inputDef.type
 
                                                 if (inputDef.type !is NonNullType) {
                                                     beginControlFlow("""if (${inputDef.name} != null)""")
@@ -73,7 +75,21 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                 }
 
                                                 if (inputType is InputObjectTypeDefinition) {
-                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
+                                                    if (inputBaseType is ListType) {
+                                                        val elementType = inputBaseType.type
+                                                        val listSerializerClass = ClassName("kotlinx.serialization.builtins", "ListSerializer")
+                                                        val elementClass = "${inputType.name}.serializer()".let {
+                                                            if (elementType is NonNullType) {
+                                                                it
+                                                            } else {
+                                                                file.addImport("kotlinx.serialization.builtins", "nullable")
+                                                                "$it.nullable"
+                                                            }
+                                                        }
+                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", %T($elementClass), ${inputDef.name})}")""", listSerializerClass)
+                                                    } else {
+                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
+                                                    }
                                                 } else if (inputType is EnumTypeDefinition) {
                                                     addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name}.name)}")""")
                                                 } else {
@@ -98,10 +114,10 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
 
                                     }.build())
                                 } else {
-                                    addProperty(PropertySpec.builder(field.name, ClassName("kotlin", "Any").copy(true))
+                                    addProperty(PropertySpec.builder(field.name, ClassName("kotlin", "Unit"))
                                             .getter(FunSpec.getterBuilder()
                                                     .addStatement("""writer.println("${field.name}")""")
-                                                    .addStatement("""return null""").build())
+                                                    .build())
                                             .build())
                                 }
                             }
