@@ -12,11 +12,11 @@ buildscript {
             maven("https://kotlin.bintray.com/kotlinx")
             maven("https://kotlin.bintray.com/kotlin-js-wrappers")
 
-//            maven("s3://steamstreet-repository/maven/release") {
-//                authentication {
-//                    val awsIm by registering(AwsImAuthentication::class)
-//                }
-//            }
+            maven("s3://graphkt-releases/maven") {
+                authentication {
+                    val awsIm by registering(AwsImAuthentication::class)
+                }
+            }
         }
     }
 
@@ -74,8 +74,17 @@ allprojects {
     }
 }
 
+fun Project.propertyOrNull(key: String): String? {
+    return if (hasProperty(key))
+        project.property(key) as? String
+    else
+        null
+}
+
 subprojects {
     apply(plugin = "maven-publish")
+
+    val project = this
 
     group = "com.steamstreet.graphkt"
     version = "0.1.0-${this.findProperty("BUILD_NUMBER")?.let { "build$it" } ?: "SNAPSHOT"}"
@@ -88,11 +97,12 @@ subprojects {
     configure<PublishingExtension> {
         repositories {
             maven {
-                url = uri("s3://steamstreet-repository/maven/release")
+                url = uri("s3://graphkt-releases/maven")
                 authentication {
                     val awsIm by registering(AwsImAuthentication::class)
                 }
             }
         }
     }
+
 }
