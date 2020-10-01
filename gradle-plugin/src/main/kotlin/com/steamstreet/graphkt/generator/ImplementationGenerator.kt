@@ -28,6 +28,12 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
         val kotlinFieldType = getKotlinType(fieldType)
         val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
 
+        val params = inputs.map { it.name }.joinToString(",").let {
+            if (it.isNotBlank()) {
+                "($it)"
+            } else it
+        }
+
         if (kotlinFieldType is ClassName) {
             when (kotlinFieldType.canonicalName) {
                 "kotlin.String",
@@ -40,11 +46,6 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 }
 
                 else -> {
-                    val params = inputs.map { it.name }.joinToString(",").let {
-                        if (it.isNotBlank()) {
-                            "($it)"
-                        } else it
-                    }
 
 
                     val scalarSerializer = schema.scalars().keys.find {
@@ -76,14 +77,14 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
             }
         } else if (baseFieldType is ListType) {
             val baseType = baseFieldType.type
-            val baseKotlinType = getKotlinType(baseType)
+//            val baseKotlinType = getKotlinType(baseType)
 
             if (fieldType is NonNullType) {
-                add("%T(%L.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
+                add("%T(%L$params.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
                     fieldInitializationCode("it", baseType, emptyList())
                 })
             } else {
-                add("%L?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
+                add("%L$params?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
                     fieldInitializationCode("it", baseType, emptyList())
                 }, jsonNullType)
             }
@@ -110,7 +111,8 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 "kotlin.Boolean" -> addPrimitive("boolean")
                 "kotlin.Float" -> addPrimitive("float")
                 else -> {
-                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), field.inputParameter("${fieldName}"))""")
+                    file.addImport("kotlinx.serialization.builtins", "serializer")
+                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), field.inputParameter("$fieldName"))""")
                 }
             }
         } else if (baseFieldType is ListType) {
@@ -130,11 +132,18 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
     fun execute() {
         file.suppress("FunctionName")
         schema.types().values.forEach { type ->
-            if (type is ObjectTypeDefinition) {
+            if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
                 val objectType = ClassName(packageName, type.name)
+                val fieldDefinitions = if (type is ObjectTypeDefinition)
+                    type.fieldDefinitions
+                else if (type is InterfaceTypeDefinition) {
+                    type.fieldDefinitions
+                } else {
+                    emptyList()
+                }
 
                 val requestSelectionClass = ClassName("com.steamstreet.graphkt.server", "RequestSelection")
-                type.fieldDefinitions.forEach { field ->
+                fieldDefinitions.forEach { field ->
                     val f = FunSpec.builder("gql_${field.name}")
                             .receiver(objectType)
                             .addModifiers(KModifier.SUSPEND)
@@ -163,7 +172,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                         .apply {
                             beginControlFlow("val fields = field.children.associate {")
                             beginControlFlow("val value = when(it.name) {")
-                            type.fieldDefinitions.forEach { field ->
+                            fieldDefinitions.forEach { field ->
                                 if (field.inputValueDefinitions.isEmpty()) {
                                     addStatement("%S -> gql_%L(it)", field.name, field.name)
                                 } else {

@@ -108,10 +108,6 @@ open class GraphQLGenerator(
                         typePackage = "kotlin"
                         simpleName = "Int"
                     }
-                    "ID" -> {
-                        typePackage = "com.steamstreet.graphkt"
-                        simpleName = "ID"
-                    }
                     else -> {
                         // enum types DO NOT get a postfix
                         val schemaType = schema.types().values.find { it.name == typeName?.name }

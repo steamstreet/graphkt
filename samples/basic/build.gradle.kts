@@ -5,13 +5,11 @@ buildscript {
     repositories {
         mavenLocal()
         jcenter()
-        maven("s3://graphkt-releases/maven")
     }
 
     dependencies {
         classpath("com.steamstreet.graphkt:gradle-plugin:$graphKtVersion")
         classpath("org.jetbrains.kotlin:kotlin-serialization:$graphKtVersion")
-
     }
 }
 

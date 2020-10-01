@@ -23,6 +23,8 @@ type Query {
     ListOfAnother: [Another!]
 
     aScalar: ASampleScalar
+
+    someFunction(input: Int): [Another!]
 }
 
 type Another {
