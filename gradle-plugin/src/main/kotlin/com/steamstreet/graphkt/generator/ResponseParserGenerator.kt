@@ -8,18 +8,16 @@ import java.io.File
 import java.util.*
 
 
-class InterfacesGenerator(schema: TypeDefinitionRegistry,
-                          packageName: String,
-                          properties: Properties,
-                          outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class ResponseParserGenerator(schema: TypeDefinitionRegistry,
+                              packageName: String,
+                              properties: Properties,
+                              outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
 
-    val file = FileSpec.builder(packageName, "graphql-interfaces")
-    private val parser = FileSpec.builder(packageName, "graphql-responses")
+    private val responsesFile = FileSpec.builder("$packageName.client", "responses")
 
     fun execute() {
-        parser.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
+        responsesFile.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
                 "NestedLambdaShadowedImplicitParameter")
-        file.suppress("PropertyName")
 
         schema.types().values.forEach { typeDef ->
             when (typeDef) {
@@ -28,19 +26,14 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
             }
         }
 
-        file.build().writeTo(outputDir)
-        parser.build().writeTo(outputDir)
+        responsesFile.build().writeTo(outputDir)
     }
 
     private fun buildInterface(typeDef: TypeDefinition<TypeDefinition<*>>) {
-        val interfaceType = TypeSpec.interfaceBuilder(typeDef.name)
-
-        val parserType = TypeSpec.classBuilder(typeDef.name + "ResponseData")
-                .addModifiers(KModifier.OPEN)
-                .addSuperinterface(ClassName(packageName, typeDef.name))
+        val clientType = TypeSpec.classBuilder(typeDef.name)
 
         val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
-        parserType.primaryConstructor(FunSpec.constructorBuilder()
+        clientType.primaryConstructor(FunSpec.constructorBuilder()
                 .addParameter("element", jsonObjectType)
                 .build())
                 .addProperty(PropertySpec.builder("element", jsonObjectType)
@@ -51,11 +44,7 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
         (typeDef as? ObjectTypeDefinition)?.implements?.map {
             getKotlinType(it).copy(nullable = false)
         }?.forEach {
-            interfaceType.addSuperinterface(it)
-        }
-
-        typeDef.comments?.forEach {
-            interfaceType.addKdoc(it.content)
+            clientType.addSuperinterface(it)
         }
 
         val fields = when (typeDef) {
@@ -67,41 +56,14 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
         val overriddenFields = if (typeDef is ObjectTypeDefinition) schema.getOverriddenFields(typeDef) else emptyList()
 
         fields?.forEach { field ->
-            val fieldType = getKotlinType(field.type)
-            if (!field.inputValueDefinitions.isNullOrEmpty()) {
-                interfaceType.addFunction(FunSpec.builder(field.name)
-                        .apply {
-                            field.comments?.forEach {
-                                this.addKdoc(it.content)
-                            }
-                            addModifiers(KModifier.ABSTRACT, KModifier.SUSPEND)
-                            returns(fieldType)
-                            field.inputValueDefinitions.forEach {
-                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
-                            }
-                        }.build())
-            } else {
-                interfaceType.addProperty(PropertySpec
-                        .builder(field.name, fieldType).apply {
-                            if (overriddenFields.find { it.name == field.name } != null) {
-                                modifiers.add(KModifier.OVERRIDE)
-                            }
-
-                            field.comments?.forEach {
-                                this.addKdoc(it.content)
-                            }
-                        }.build())
-            }
+            val fieldType = getKotlinType(field.type, overriddenPackage = clientPackage)
 
             // build the parser definition
-
-            parserType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
+            clientType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
                 if (field.inputValueDefinitions.isNullOrEmpty()) {
-                    addModifiers(KModifier.OVERRIDE)
                 }
             }.getter(FunSpec.getterBuilder().apply {
                 addCode(CodeBlock.builder().apply {
-//                            addCode("return ")
                     addStatement("val result = element[%S]?.let {", field.name)
                     indent()
 
@@ -121,23 +83,9 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
                     addStatement("return result")
                 }
             }.build()).build())
-
-            // add an empty declaration for the function call
-            if (!field.inputValueDefinitions.isNullOrEmpty()) {
-                parserType.addFunction(FunSpec.builder(field.name)
-                        .apply {
-                            addModifiers(KModifier.OVERRIDE, KModifier.SUSPEND)
-                            returns(fieldType)
-                            field.inputValueDefinitions.forEach {
-                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
-                            }
-                            addStatement("return ${field.name}")
-                        }.build())
-            }
         }
 
-        file.addType(interfaceType.build())
-        parser.addType(parserType.build())
+        responsesFile.addType(clientType.build())
     }
 
     fun CodeBlock.Builder.jsonExtractCode(type: Type<Type<*>>) {
@@ -168,12 +116,12 @@ class InterfacesGenerator(schema: TypeDefinitionRegistry,
 
                     beginControlFlow("it.%T.let", jsonObjectFunction)
                     if (isCustomScalar) {
-                        addStatement("json.decodeFromJsonElement(%T, it)", scalarSerializer(typeName))
+                        addStatement("%T.decodeFromJsonElement(%T, it)", jsonParserType, scalarSerializer(typeName))
                     } else if (isScalar) {
                         addStatement("it.%T.%T", jsonPrimitiveFunction,
                                 ClassName("kotlinx.serialization.json", "content${orNullText}"))
                     } else {
-                        addStatement("${typeName}ResponseData(it)")
+                        addStatement("${typeName}(it)")
                     }
                     endControlFlow()
                 }

@@ -6,12 +6,17 @@ schema {
 scalar PhoneNumber
 
 type Query {
+    # get a person by id
     person(id: String!): Person
 }
 
 type Person {
+    # the person's name
     name: String
+
+    # a list of friend ids
     friends: [String!]!
 
+    # the person's phone number
     phoneNumber: PhoneNumber
 }

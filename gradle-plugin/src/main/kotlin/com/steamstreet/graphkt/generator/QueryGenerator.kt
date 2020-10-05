@@ -14,7 +14,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                      packageName: String,
                      properties: Properties,
                      outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
-    private val file = FileSpec.builder(packageName, "graphql-query")
+    private val file = FileSpec.builder("$packageName.client", "query")
     private val writerClass = ClassName("com.steamstreet.graphkt.client", "QueryWriter")
     private val label = "Query"
 
@@ -48,7 +48,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                         }
                                         if (requiresBlock) {
                                             addParameter(ParameterSpec.builder("block",
-                                                    LambdaTypeName.get(ClassName(packageName, "_${foundType?.name}$label"),
+                                                    LambdaTypeName.get(ClassName(clientPackage, "_${foundType?.name}$label"),
                                                             emptyList(), ClassName("kotlin", "Unit"))).build())
                                         }
 
@@ -130,7 +130,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
             file.addFunction(FunSpec.builder(operationType.name)
                     .receiver(ClassName("com.steamstreet.graphkt.client", "QueryWriter"))
                     .addParameter(ParameterSpec.builder("block",
-                            LambdaTypeName.get(ClassName(packageName, "_${operationType.typeName.name}$label"),
+                            LambdaTypeName.get(ClassName(clientPackage, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
                     .addStatement("""this.type = "${operationType.name}"""")
                     .addStatement("""_${operationType.typeName.name}Query(this).block()""")

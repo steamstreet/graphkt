@@ -70,7 +70,8 @@ open class GraphQLCodeGenerator : DefaultTask() {
 
         DataTypesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
         QueryGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        InterfacesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        ImplementationGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+        ResponseParserGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+        ServerInterfacesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+        ServerMappingGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
     }
 }

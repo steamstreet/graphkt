@@ -10,28 +10,30 @@ import java.util.*
  * Generates the file that receives the requests and forwards along to the
  * implementation classes.
  */
-class ImplementationGenerator(schema: TypeDefinitionRegistry,
-                              packageName: String,
-                              properties: Properties,
-                              outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
-    val file = FileSpec.builder(packageName, "graphql-service-mapping")
+class ServerMappingGenerator(schema: TypeDefinitionRegistry,
+                             packageName: String,
+                             properties: Properties,
+                             outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+    val file = FileSpec.builder(serverPackage, "service-mapping")
 
-    fun CodeBlock.Builder.buildFieldFetcher(fieldName: String, inputs: List<InputValueDefinition>) {
-        if (inputs.isEmpty()) {
+    fun CodeBlock.Builder.buildFieldFetcher(fieldName: String, inputs: List<InputValueDefinition>?) {
+        if (inputs == null) {
             add("%L", fieldName)
+        } else if (inputs.isEmpty()) {
+            add("%L()", fieldName)
         } else {
             add("%L(%L)", fieldName, inputs.map { it.name }.joinToString(", "))
         }
     }
 
-    private fun CodeBlock.Builder.fieldInitializationCode(fieldName: String, fieldType: Type<Type<*>>, inputs: List<InputValueDefinition>) {
+    private fun CodeBlock.Builder.fieldInitializationCode(fieldName: String, fieldType: Type<Type<*>>, inputs: List<InputValueDefinition>?) {
         val kotlinFieldType = getKotlinType(fieldType)
         val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
 
-        val params = inputs.map { it.name }.joinToString(",").let {
+        val params = inputs?.map { it.name }?.joinToString(",")?.let {
             if (it.isNotBlank()) {
                 "($it)"
-            } else it
+            } else "()"
         }
 
         if (kotlinFieldType is ClassName) {
@@ -46,8 +48,6 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 }
 
                 else -> {
-
-
                     val scalarSerializer = schema.scalars().keys.find {
                         properties["scalar.$it.class"] == kotlinFieldType.canonicalName
                     }?.let {
@@ -57,9 +57,9 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                     if (isScalar(baseFieldType)) {
                         if (isCustomScalar(baseFieldType)) {
                             if (kotlinFieldType.isNullable) {
-                                add("%L$params?.let { json.encodeToJsonElement(%T, it) } ?: %T", fieldName, scalarSerializer, jsonNullType)
+                                add("%L$params?.let { %T.encodeToJsonElement(%T, it) } ?: %T", fieldName, jsonParserType, scalarSerializer, jsonNullType)
                             } else {
-                                add("%L$params.let { json.encodeToJsonElement(%T, it) } ?: throw %T()", fieldName, scalarSerializer, NullPointerExceptionClass)
+                                add("%L$params.let { %T.encodeToJsonElement(%T, it) } ?: throw %T()", fieldName, jsonParserType, scalarSerializer, NullPointerExceptionClass)
                             }
                         } else {
                             add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
@@ -77,15 +77,14 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
             }
         } else if (baseFieldType is ListType) {
             val baseType = baseFieldType.type
-//            val baseKotlinType = getKotlinType(baseType)
 
             if (fieldType is NonNullType) {
                 add("%T(%L$params.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
-                    fieldInitializationCode("it", baseType, emptyList())
+                    fieldInitializationCode("it", baseType, null)
                 })
             } else {
                 add("%L$params?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
-                    fieldInitializationCode("it", baseType, emptyList())
+                    fieldInitializationCode("it", baseType, null)
                 }, jsonNullType)
             }
         }
@@ -112,6 +111,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
                 "kotlin.Float" -> addPrimitive("float")
                 else -> {
                     file.addImport("kotlinx.serialization.builtins", "serializer")
+                    file.addImport(jsonParserType.packageName, jsonParserType.simpleName)
                     add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), field.inputParameter("$fieldName"))""")
                 }
             }
@@ -119,10 +119,12 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
             val baseType = baseFieldType.type
             val elementType = getKotlinType(baseType)
             file.addImport("kotlinx.serialization.builtins", "serializer")
+            file.addImport(jsonParserType.packageName, jsonParserType.simpleName)
 
             if (elementType is ClassName) {
-                add("""json.decodeFromJsonElement(%T(%L), field.inputParameter("$fieldName"))""",
-                        ClassName("kotlinx.serialization.builtins", "ListSerializer"),
+                file.addImport("kotlinx.serialization.builtins", "ListSerializer")
+
+                addStatement("""json.decodeFromJsonElement(ListSerializer(%L), field.inputParameter("$fieldName"))""",
                         "${elementType.simpleName}.serializer()"
                 )
             }
@@ -133,7 +135,7 @@ class ImplementationGenerator(schema: TypeDefinitionRegistry,
         file.suppress("FunctionName")
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
-                val objectType = ClassName(packageName, type.name)
+                val objectType = ClassName(serverPackage, type.name)
                 val fieldDefinitions = if (type is ObjectTypeDefinition)
                     type.fieldDefinitions
                 else if (type is InterfaceTypeDefinition) {

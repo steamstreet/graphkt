@@ -21,6 +21,8 @@ open class GraphQLGenerator(
         val properties: Properties,
         val outputDir: File
 ) {
+    val jsonParserType = ClassName(packageName, "json")
+
     fun scalarClass(name: String): ClassName {
         return properties["scalar.${name}.class"]?.toString()?.let {
             ClassName.bestGuess(it)
@@ -67,18 +69,18 @@ open class GraphQLGenerator(
      * For a given GraphQL type, get the Kotlin type. Uses the configuration for
      * scalars.
      */
-    fun getKotlinType(type: Type<Type<*>>, postfix: String = ""): TypeName {
+    fun getKotlinType(type: Type<Type<*>>, postfix: String = "", overriddenPackage: String? = null): TypeName {
         return when (type) {
             is ListType -> {
-                val baseClass = getKotlinType(type.type, postfix)
+                val baseClass = getKotlinType(type.type, postfix, overriddenPackage)
                 ClassName("kotlin.collections", "List").parameterizedBy(baseClass).copy(nullable = true)
             }
             is NonNullType -> {
-                getKotlinType(type.type, postfix).copy(nullable = false)
+                getKotlinType(type.type, postfix, overriddenPackage).copy(nullable = false)
             }
             else -> {
                 val typeName = (type as? graphql.language.TypeName)
-                var typePackage = packageName
+                var typePackage = overriddenPackage ?: packageName
                 var simpleName = typeName?.name + postfix
 
                 if (typeName != null && isCustomScalar(type)) {
@@ -124,4 +126,7 @@ open class GraphQLGenerator(
             }
         }
     }
+
+    val clientPackage: String get() = "${packageName}.client"
+    val serverPackage: String get() = "${packageName}.server"
 }

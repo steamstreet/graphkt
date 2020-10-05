@@ -18,14 +18,13 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                          properties: Properties,
                          outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
 
-    val file = FileSpec.builder(packageName, "graphql-common")
-    val inputs = FileSpec.builder(packageName, "graphql-inputs")
+    val commonFile = FileSpec.builder(packageName, "common")
+
     fun execute() {
         generateInputTypes()
         scalarAliases()
         serializerModule()
-        file.build().writeTo(outputDir)
-        inputs.build().writeTo(outputDir)
+        commonFile.build().writeTo(outputDir)
     }
 
     private fun scalarAliases() {
@@ -33,7 +32,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
             val scalarClass = scalarClass(scalar.name)
 
             if (scalarClass == String::class.asClassName()) {
-                file.addTypeAlias(TypeAliasSpec.builder(scalar.name, String::class.asClassName()).build())
+                commonFile.addTypeAlias(TypeAliasSpec.builder(scalar.name, String::class.asClassName()).build())
             }
         }
     }
@@ -42,7 +41,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
         val serializers = schema.customScalars().filter { scalarSerializer(it.name) != null }
 
         if (serializers.isNotEmpty()) {
-            file.addProperty(PropertySpec.builder("serializerModule",
+            commonFile.addProperty(PropertySpec.builder("serializerModule",
                     ClassName("kotlinx.serialization.modules", "SerializersModule"))
                     .initializer(CodeBlock.builder().apply {
                         this.beginControlFlow("%T",
@@ -65,7 +64,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
         }
 
         val jsonSerializerType = ClassName("kotlinx.serialization.json", "Json")
-        file.addProperty(PropertySpec.builder("json",
+        commonFile.addProperty(PropertySpec.builder("json",
                 jsonSerializerType)
                 .addModifiers(KModifier.INTERNAL)
                 .initializer(CodeBlock.builder().apply {
@@ -111,38 +110,12 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                             getKotlinType(inputValue.type))
                             .initializer(inputValue.name).build())
                 }
-
-//                val companion = TypeSpec.companionObjectBuilder().addFunction(
-//                        FunSpec.builder("fromArgument").apply {
-//                            this.returns(ClassName(packageName, inputType.name).copy(nullable = true))
-//                            val mapType = ClassName("kotlin.collections", "Map").parameterizedBy(
-//                                    ClassName("kotlin", "String"),
-//                                    ClassName("kotlin", "Any").copy(nullable = true)
-//                            ).copy(nullable = true)
-//                            this.addParameter(ParameterSpec.builder("arg", mapType).apply {
-//                            }.build())
-//
-//                            val parameterTypes = inputType.inputValueDefinitions.map {
-//                                getKotlinType(it.type)
-//                            }
-//                            addStatement("if (arg == null) return null")
-//
-//                            val parameterString = inputType.inputValueDefinitions.map {
-//                                """${it.name} = arg["${it.name}"] as %T"""
-//                            }.joinToString(", ")
-//
-//                            addStatement("""return ${inputType.name}(${parameterString})""", *(parameterTypes.toTypedArray()))
-//                        }.build())
-
-//                addType(companion.build())
             }
-
-
-            inputs.addType(inputTypeClass.build())
+            commonFile.addType(inputTypeClass.build())
         }
 
         schema.types().values.mapNotNull { it as? EnumTypeDefinition }.forEach { enumType ->
-            file.addType(TypeSpec.enumBuilder(ClassName(packageName, enumType.name)).apply {
+            commonFile.addType(TypeSpec.enumBuilder(ClassName(packageName, enumType.name)).apply {
                 enumType.comments?.forEach {
                     this.addKdoc(it.content)
                 }

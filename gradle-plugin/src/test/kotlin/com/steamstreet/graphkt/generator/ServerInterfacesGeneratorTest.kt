@@ -35,7 +35,7 @@ class ServerInterfacesGeneratorTest {
 
         val packageName = "com.steamstreet.teststeam"
 
-        InterfacesGenerator(schema, packageName, Properties(), outputDir).execute()
+        ServerInterfacesGenerator(schema, packageName, Properties(), outputDir).execute()
 
         val interfaces = File(outputDir, "com/steamstreet/teststeam/graphql-interfaces.kt").readText()
         val interfacesParser = File(outputDir, "com/steamstreet/teststeam/graphql-interfaces-parser.kt").readText()

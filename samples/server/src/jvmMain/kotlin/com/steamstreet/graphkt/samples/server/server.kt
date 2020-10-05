@@ -1,5 +1,8 @@
 package com.steamstreet.graphkt.samples.server
 
+import com.steamstreet.graphkt.samples.server.server.Person
+import com.steamstreet.graphkt.samples.server.server.Query
+import com.steamstreet.graphkt.samples.server.server.gqlSelect
 import com.steamstreet.graphkt.server.ktor.graphQL
 import io.ktor.application.*
 import io.ktor.http.*
@@ -29,18 +32,14 @@ fun main() {
 
 class Server : Query {
     override suspend fun person(id: String): Person? {
-        println(id)
         return PersonImpl()
     }
 }
 
 class PersonImpl : Person {
-    override val name: String?
-        get() = "Robin"
+    override suspend fun name(): String? = "Robin"
 
-    override val friends: List<String>
-        get() = listOf("Jonathan", "Bill", "Reilly")
+    override suspend fun friends(): List<String> = listOf("Jonathan", "Bill", "Reilly")
 
-    override val phoneNumber: PhoneNumber?
-        get() = TODO("not implemented")
+    override suspend fun phoneNumber(): PhoneNumber? = null
 }
