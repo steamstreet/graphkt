@@ -20,8 +20,7 @@ fun main() {
             route("/graphql") {
                 graphQL {
                     query { _, it ->
-                        val result = Server().gqlSelect(it)
-                        result
+                        Server().gqlSelect(it)
                     }
                 }
             }
@@ -41,5 +40,5 @@ class PersonImpl : Person {
 
     override suspend fun friends(): List<String> = listOf("Jonathan", "Bill", "Reilly")
 
-    override suspend fun phoneNumber(): PhoneNumber? = null
+    override suspend fun phoneNumber(): PhoneNumber? = PhoneNumber("+18312121642")
 }

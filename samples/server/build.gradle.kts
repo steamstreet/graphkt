@@ -47,7 +47,7 @@ kotlin {
 
             dependencies {
                 implementation("com.steamstreet.graphkt:server-ktor:$graphKtVersion")
-                implementation("io.ktor:ktor-server-netty:1.3.1")
+                implementation("io.ktor:ktor-server-netty:1.4.0")
             }
         }
 
