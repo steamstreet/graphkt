@@ -9,7 +9,6 @@ buildscript {
 
     dependencies {
         classpath("com.steamstreet.graphkt:gradle-plugin:$graphKtVersion")
-        classpath("org.jetbrains.kotlin:kotlin-serialization:$graphKtVersion")
     }
 }
 
@@ -36,8 +35,6 @@ kotlin {
             kotlin.srcDir(File(project.buildDir, "graphql/generated"))
 
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.0.0-RC")
-
                 api("com.steamstreet.graphkt:client:$graphKtVersion")
                 api("com.steamstreet.graphkt:server:$graphKtVersion")
                 api("com.steamstreet.graphkt:common-runtime:$graphKtVersion")

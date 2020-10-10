@@ -17,7 +17,7 @@ dependencies {
     implementation("io.ktor:ktor-server-host-common")
     implementation("io.ktor:ktor-server-core")
 
-    implementation("com.graphql-java:graphql-java")
+    implementation("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
 
     testImplementation("com.jayway.jsonpath:json-path")
     testImplementation("org.junit.jupiter:junit-jupiter-engine")
