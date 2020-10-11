@@ -25,6 +25,10 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-annotations-common")
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 val sourcesJar by tasks.registering(Jar::class) {
     archiveClassifier.set("sources")
