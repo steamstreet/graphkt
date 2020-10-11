@@ -21,16 +21,31 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
 
         schema.types().values.forEach { typeDef ->
             when (typeDef) {
-                is ObjectTypeDefinition -> buildInterface(typeDef)
-                is InterfaceTypeDefinition -> buildInterface(typeDef)
+                is ObjectTypeDefinition -> buildObject(typeDef)
+                is InterfaceTypeDefinition -> {
+                    buildInterface(typeDef)
+                    buildObject(typeDef)
+                }
             }
         }
 
         responsesFile.build().writeTo(outputDir)
     }
 
-    private fun buildInterface(typeDef: TypeDefinition<TypeDefinition<*>>) {
-        val clientType = TypeSpec.classBuilder(typeDef.name)
+    private fun buildInterface(typeDef: InterfaceTypeDefinition) {
+        val interfaceType = TypeSpec.interfaceBuilder(typeDef.name).apply {
+            typeDef.fieldDefinitions.forEach { field ->
+                val fieldType = getKotlinType(field.type, overriddenPackage = clientPackage)
+                addProperty(PropertySpec.builder(field.name, fieldType).apply {
+                }.build())
+            }
+        }.build()
+        responsesFile.addType(interfaceType)
+    }
+
+    private fun buildObject(typeDef: TypeDefinition<TypeDefinition<*>>) {
+        val isInterfaceImpl = typeDef is InterfaceTypeDefinition
+        val clientType = TypeSpec.classBuilder(typeDef.name + (if (isInterfaceImpl) "Impl" else ""))
 
         val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
         clientType.primaryConstructor(FunSpec.constructorBuilder()
@@ -42,9 +57,13 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                         .build())
 
         (typeDef as? ObjectTypeDefinition)?.implements?.map {
-            getKotlinType(it).copy(nullable = false)
+            getKotlinType(it, overriddenPackage = clientPackage).copy(nullable = false)
         }?.forEach {
             clientType.addSuperinterface(it)
+        }
+
+        if (isInterfaceImpl) {
+            clientType.addSuperinterface(ClassName(clientPackage, typeDef.name))
         }
 
         val fields = when (typeDef) {
@@ -60,6 +79,9 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
 
             // build the parser definition
             clientType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
+                if (isInterfaceImpl || overriddenFields.map { it.name }.contains(field.name)) {
+                    addModifiers(KModifier.OVERRIDE)
+                }
                 if (field.inputValueDefinitions.isNullOrEmpty()) {
                 }
             }.getter(FunSpec.getterBuilder().apply {
@@ -100,8 +122,12 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
             val orNullText = if (!isNonNull) "OrNull" else ""
 
             when (typeName) {
-                "String" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
-                        ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                "String" -> if (!isNonNull) {
+                    addStatement("it.%T.%T", jsonPrimitiveFunction,
+                            ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                } else {
+                    addStatement("it.%T.content", jsonPrimitiveFunction)
+                }
                 "Int" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
                         ClassName("kotlinx.serialization.json", "int${orNullText}"))
                 "Float" -> addStatement("it.%T.%T", jsonPrimitiveFunction,
@@ -118,8 +144,14 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                     if (isCustomScalar) {
                         addStatement("%T.decodeFromJsonElement(%T, it)", jsonParserType, scalarSerializer(typeName))
                     } else if (isScalar) {
-                        addStatement("it.%T.%T", jsonPrimitiveFunction,
-                                ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                        if (!isNonNull) {
+                            addStatement("it.%T.%T", jsonPrimitiveFunction,
+                                    ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                        } else {
+                            addStatement("it.%T.content", jsonPrimitiveFunction)
+                        }
+                    } else if (schema.isInterfaceOrUnion(baseType)) {
+                        addStatement("${typeName}Impl(it)")
                     } else {
                         addStatement("${typeName}(it)")
                     }

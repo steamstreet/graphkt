@@ -51,17 +51,31 @@ class ServerInterfacesGenerator(schema: TypeDefinitionRegistry,
 
         fields?.forEach { field ->
             val fieldType = getKotlinType(field.type, overriddenPackage = serverPackage)
-            serverType.addFunction(FunSpec.builder(field.name)
-                    .apply {
-                        field.comments?.forEach {
-                            this.addKdoc(it.content)
-                        }
-                        addModifiers(KModifier.ABSTRACT, KModifier.SUSPEND)
-                        returns(fieldType)
-                        field.inputValueDefinitions.forEach {
-                            addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
-                        }
-                    }.build())
+            if (field.inputValueDefinitions.isEmpty()) {
+                serverType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
+                    field.comments?.forEach {
+                        this.addKdoc(it.content)
+                    }
+                    if (overriddenFields.map { it.name }.contains(field.name)) {
+                        addModifiers(KModifier.OVERRIDE)
+                    }
+                }.build())
+            } else {
+                serverType.addFunction(FunSpec.builder(field.name)
+                        .apply {
+                            field.comments?.forEach {
+                                this.addKdoc(it.content)
+                            }
+                            addModifiers(KModifier.ABSTRACT)
+                            if (overriddenFields.map { it.name }.contains(field.name)) {
+                                addModifiers(KModifier.OVERRIDE)
+                            }
+                            returns(fieldType)
+                            field.inputValueDefinitions.forEach {
+                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
+                            }
+                        }.build())
+            }
         }
 
         servicesFile.addType(serverType.build())

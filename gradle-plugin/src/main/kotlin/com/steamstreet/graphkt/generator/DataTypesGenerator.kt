@@ -33,6 +33,8 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
 
             if (scalarClass == String::class.asClassName()) {
                 commonFile.addTypeAlias(TypeAliasSpec.builder(scalar.name, String::class.asClassName()).build())
+            } else {
+                commonFile.addTypeAlias(TypeAliasSpec.builder(scalar.name, scalarClass).build())
             }
         }
     }
@@ -97,9 +99,14 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                                         defaultValue("null")
                                     }
 
-                                    schema.buildSerializableAnnotation(inputValue.type)?.let {
-                                        addAnnotation(it)
+                                    schema.findScalar(inputValue.type)?.let {
+                                        properties["scalar.${it.name}.serializer"]
+                                    }?.let {
+                                        addAnnotation(ClassName("kotlinx.serialization", "Contextual"))
                                     }
+//                                    schema.buildSerializableAnnotation(inputValue.type)?.let {
+//                                        addAnnotation(it)
+//                                    }
                                 }.build()
                         )
                     }

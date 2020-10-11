@@ -20,7 +20,7 @@ open class GraphQLCodeGenerator : DefaultTask() {
     @InputFile
     @Optional
     fun getProperties(): File? {
-        return File("${getSchema().nameWithoutExtension}.properties").takeIf { it.exists() }
+        return File(getSchema().parentFile, "${getSchema().nameWithoutExtension}.properties").takeIf { it.exists() }
     }
 
     @InputFiles

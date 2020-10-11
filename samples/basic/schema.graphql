@@ -27,7 +27,13 @@ type Query {
     someFunction(input: Int): [Another!]
 }
 
-type Another {
+interface Common {
+    name: String
+}
+
+type Another implements Common {
+    name: String
+
     anotherString: String!
 
     doSomething(input: SomeInput!): Boolean
@@ -44,4 +50,6 @@ type Another {
 
 input SomeInput {
     value: String!
+
+    aScalar: ASampleScalar
 }

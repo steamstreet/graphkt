@@ -128,12 +128,20 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
 
         schema.schemaDefinition().get().operationTypeDefinitions.forEach { operationType ->
             file.addFunction(FunSpec.builder(operationType.name)
-                    .receiver(ClassName("com.steamstreet.graphkt.client", "QueryWriter"))
+                    .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
+                    .returns(ClassName(clientPackage, operationType.name.capitalize()))
+                    .addModifiers(KModifier.SUSPEND)
                     .addParameter(ParameterSpec.builder("block",
                             LambdaTypeName.get(ClassName(clientPackage, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
+                    .beginControlFlow("val result = execute {")
                     .addStatement("""this.type = "${operationType.name}"""")
                     .addStatement("""_${operationType.typeName.name}Query(this).block()""")
+                    .endControlFlow()
+                    .addStatement("""return ${operationType.name.capitalize()}(%T.parseToJsonElement(result).%T)""",
+                            ClassName(packageName, "json"),
+                            ClassName("kotlinx.serialization.json", "jsonObject")
+                    )
                     .build())
         }
 

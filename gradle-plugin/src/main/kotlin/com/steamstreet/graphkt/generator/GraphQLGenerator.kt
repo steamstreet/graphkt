@@ -85,7 +85,7 @@ open class GraphQLGenerator(
 
                 if (typeName != null && isCustomScalar(type)) {
                     return (properties["scalar.${typeName.name}.class"]?.toString()?.let {
-                        ClassName.bestGuess(it)
+                        ClassName(packageName, typeName.name)
                     } ?: String::class.asClassName()).copy(true)
                 }
 

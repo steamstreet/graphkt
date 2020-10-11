@@ -2,6 +2,7 @@ package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.*
 import graphql.language.*
+import graphql.language.TypeName
 import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
 import java.util.*
@@ -20,7 +21,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
         if (inputs == null) {
             add("%L", fieldName)
         } else if (inputs.isEmpty()) {
-            add("%L()", fieldName)
+            add("%L", fieldName)
         } else {
             add("%L(%L)", fieldName, inputs.map { it.name }.joinToString(", "))
         }
@@ -33,8 +34,8 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
         val params = inputs?.map { it.name }?.joinToString(",")?.let {
             if (it.isNotBlank()) {
                 "($it)"
-            } else "()"
-        }
+            } else ""
+        } ?: ""
 
         if (kotlinFieldType is ClassName) {
             when (kotlinFieldType.canonicalName) {
@@ -48,14 +49,9 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                 }
 
                 else -> {
-                    val scalarSerializer = schema.scalars().keys.find {
-                        properties["scalar.$it.class"] == kotlinFieldType.canonicalName
-                    }?.let {
-                        scalarSerializer(it)
-                    }
-
                     if (isScalar(baseFieldType)) {
                         if (isCustomScalar(baseFieldType)) {
+                            val scalarSerializer = scalarSerializer((baseFieldType as TypeName).name)
                             if (kotlinFieldType.isNullable) {
                                 add("%L$params?.let { %T.encodeToJsonElement(%T, it) } ?: %T", fieldName, jsonParserType, scalarSerializer, jsonNullType)
                             } else {
@@ -99,7 +95,9 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
 
         fun addPrimitive(str: String) {
             val getterName = "$str${if (inputKotlinType.isNullable) "OrNull" else ""}"
-            file.addImport("kotlinx.serialization.json", "jsonPrimitive", getterName)
+            if (!(str == "content" && !inputKotlinType.isNullable)) {
+                file.addImport("kotlinx.serialization.json", "jsonPrimitive", getterName)
+            }
             add("""it.inputParameter("$fieldName").jsonPrimitive.$getterName""")
         }
 
@@ -148,7 +146,6 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                 fieldDefinitions.forEach { field ->
                     val f = FunSpec.builder("gql_${field.name}")
                             .receiver(objectType)
-                            .addModifiers(KModifier.SUSPEND)
                             .returns(jsonElementType)
                             .apply {
                                 addParameter("field", requestSelectionClass)
@@ -169,7 +166,6 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
 
                 file.addFunction(FunSpec.builder("gqlSelect")
                         .receiver(objectType)
-                        .addModifiers(KModifier.SUSPEND)
                         .addParameter("field", requestSelectionClass)
                         .apply {
                             beginControlFlow("val fields = field.children.associate {")
