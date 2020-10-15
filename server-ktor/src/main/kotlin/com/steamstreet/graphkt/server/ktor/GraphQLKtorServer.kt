@@ -44,8 +44,9 @@ class ServerRequestSelection(val call: ApplicationCall,
 
     override fun inputParameter(key: String): JsonElement {
         val value = (node as Field).arguments.find { it.name == key }?.value
-        if (value is VariableReference) {
-            TODO("not implemented")
+        return if (value is VariableReference) {
+            val variableName = value.name
+            variables[variableName]!!
         } else {
             return when (value) {
                 is BooleanValue -> value.isValue.let { JsonPrimitive(it) }
@@ -105,11 +106,22 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     post {
         val request = call.receiveText()
         val requestElement = json.parseToJsonElement(request) as JsonObject
-        val query = requestElement["query"]
-        val variables = requestElement["variables"]
-//        val operationName = requestElement["operationName"]?.primitive?.contentOrNull
+        val query = requestElement["query"]?.jsonPrimitive?.contentOrNull?.let {
+            parseQraphQLOperation(it)
+        }
+        val variables = requestElement["variables"]?.jsonObject
+        val node = query?.children?.find { it is SelectionSet } ?: throw IllegalArgumentException()
 
-        call.respondText("", ContentType.Application.Json)
+        try {
+            val selection = ServerRequestSelection(call, variables ?: emptyMap(), node)
+            val result = mutationGetter?.invoke(call, selection) ?: throw NotFoundException()
+            val responseEnvelope = JsonObject(mapOf("data" to result))
+
+            call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            throw t
+        }
     }
 
     get {
