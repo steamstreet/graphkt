@@ -7,11 +7,10 @@ plugins {
 }
 
 dependencies {
-    api("org.jetbrains.kotlin:kotlin-reflect")
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
+    api("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.4.10")
 
-    api("com.graphql-java:graphql-java")
-    api("com.squareup:kotlinpoet")
+    api("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
+    api("com.squareup:kotlinpoet:1.6.0")
 
     testImplementation("org.amshove.kluent:kluent")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
