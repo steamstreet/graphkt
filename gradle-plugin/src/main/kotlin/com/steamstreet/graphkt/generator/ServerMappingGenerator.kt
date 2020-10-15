@@ -110,7 +110,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                 else -> {
                     file.addImport("kotlinx.serialization.builtins", "serializer")
                     file.addImport(jsonParserType.packageName, jsonParserType.simpleName)
-                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), field.inputParameter("$fieldName"))""")
+                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
                 }
             }
         } else if (baseFieldType is ListType) {
@@ -122,7 +122,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
             if (elementType is ClassName) {
                 file.addImport("kotlinx.serialization.builtins", "ListSerializer")
 
-                addStatement("""json.decodeFromJsonElement(ListSerializer(%L), field.inputParameter("$fieldName"))""",
+                addStatement("""json.decodeFromJsonElement(ListSerializer(%L), it.inputParameter("$fieldName"))""",
                         "${elementType.simpleName}.serializer()"
                 )
             }
