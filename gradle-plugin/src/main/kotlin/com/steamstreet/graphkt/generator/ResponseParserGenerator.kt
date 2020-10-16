@@ -82,11 +82,9 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                 if (isInterfaceImpl || overriddenFields.map { it.name }.contains(field.name)) {
                     addModifiers(KModifier.OVERRIDE)
                 }
-                if (field.inputValueDefinitions.isNullOrEmpty()) {
-                }
             }.getter(FunSpec.getterBuilder().apply {
                 addCode(CodeBlock.builder().apply {
-                    addStatement("val result = element[%S]?.let {", field.name)
+                    addStatement("val result = element[%S]?.takeIf { it !is %T }?.let {", field.name, jsonNullType)
                     indent()
 
                     val statementType = if (field.type is NonNullType) {
