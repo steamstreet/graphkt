@@ -55,12 +55,8 @@ class AppendableQueryWriter(
             realKey = "$name$index"
         }
 
-        Json {
-
-        }
-//        val jsonValue = Json(JsonConfiguration.Stable).toJson(serializer, value)
-
-//        variables[realKey] = TypeAndValue(type, jsonValue)
+        val jsonValue = Json.encodeToJsonElement(serializer, value)
+        variables[realKey] = TypeAndValue(type, jsonValue)
         return realKey
     }
 

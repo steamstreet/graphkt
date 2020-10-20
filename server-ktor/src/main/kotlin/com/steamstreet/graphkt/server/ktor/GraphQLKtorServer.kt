@@ -11,7 +11,6 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.util.*
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 interface GraphQLConfiguration {
@@ -96,12 +95,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     }
     config.block()
 
-    @Serializable
-    data class GraphQLRequestEnvelope(
-            val query: String,
-            val operationName: String?,
-            val variables: Map<String, String>?
-    )
+
 
     post {
         val request = call.receiveText()
@@ -110,10 +104,10 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             parseQraphQLOperation(it)
         }
         val variables = requestElement["variables"]?.jsonObject
-        val node = query?.children?.find { it is SelectionSet } ?: throw IllegalArgumentException()
 
         try {
-            val selection = ServerRequestSelection(call, variables ?: emptyMap(), node)
+            val selection = ServerRequestSelection(call, variables ?: emptyMap(),
+                    query?.selectionSet ?: throw IllegalArgumentException())
             val result = mutationGetter?.invoke(call, selection) ?: throw NotFoundException()
             val responseEnvelope = JsonObject(mapOf("data" to result))
 
@@ -132,10 +126,9 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             json.parseToJsonElement(it) as JsonObject
         }
 
-        val node: Node<out Node<*>> = query?.children?.first() ?: throw IllegalStateException("Unknown state")
-
         try {
-            val selection = ServerRequestSelection(call, variables ?: emptyMap(), node)
+            val selection = ServerRequestSelection(call, variables ?: emptyMap(),
+                    query?.selectionSet ?: throw IllegalArgumentException())
             val result = queryGetter?.invoke(call, selection) ?: throw NotFoundException()
             val responseEnvelope = JsonObject(mapOf("data" to result))
 
