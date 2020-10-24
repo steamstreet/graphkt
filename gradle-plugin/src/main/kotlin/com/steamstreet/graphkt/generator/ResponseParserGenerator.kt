@@ -138,7 +138,9 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                         it.name == typeName
                     } != null
 
-                    if (isScalar && !isCustomScalar) {
+                    if (isCustomScalar) {
+                        addStatement("%T.decodeFromJsonElement(%T, it)", jsonParserType, scalarSerializer(typeName))
+                    } else if (isScalar) {
                         if (!isNonNull) {
                             addStatement("it.%T.%T", jsonPrimitiveFunction,
                                     ClassName("kotlinx.serialization.json", "content${orNullText}"))
@@ -147,9 +149,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                         }
                     } else {
                         beginControlFlow("it.%T.let", jsonObjectFunction)
-                        if (isCustomScalar) {
-                            addStatement("%T.decodeFromJsonElement(%T, it)", jsonParserType, scalarSerializer(typeName))
-                        } else if (schema.isInterfaceOrUnion(baseType)) {
+                        if (schema.isInterfaceOrUnion(baseType)) {
                             addStatement("${typeName}Impl(it)")
                         } else {
                             addStatement("${typeName}(it)")
