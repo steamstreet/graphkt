@@ -182,6 +182,21 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                                             }.joinToString(", "))
                                 }
                             }
+
+                            if (type is InterfaceTypeDefinition) {
+                                addStatement(""""__typename" -> %T(%L)""", jsonPrimitiveType, CodeBlock.builder().apply {
+                                    this.beginControlFlow("when (this) {")
+                                    schema.types().values.filter {
+                                        it is ObjectTypeDefinition && it.implements.mapNotNull { (it as? TypeName)?.name }.contains(type.name)
+                                    }.forEach {
+                                        addStatement("is %L -> %S", it.name, it.name)
+                                    }
+                                    addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+                                    endControlFlow()
+                                }.build().toString())
+                            } else {
+                                addStatement(""""__typename" -> %T("${type.name}")""", jsonPrimitiveType)
+                            }
                             addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
                             endControlFlow()
                             addStatement("it.name to value")

@@ -32,6 +32,14 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                 .addModifiers(KModifier.PRIVATE)
                                 .build())
                         .apply {
+                            // add the typename API
+                            addProperty(PropertySpec.builder("__typename", ClassName("kotlin", "Unit"))
+                                    .getter(FunSpec.getterBuilder()
+                                            .addStatement("""writer.println("__typename")""")
+                                            .build())
+                                    .build())
+
+
                             val fields = if (type is ObjectTypeDefinition) type.fieldDefinitions
                             else if (type is InterfaceTypeDefinition) type.fieldDefinitions
                             else null

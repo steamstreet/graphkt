@@ -34,6 +34,8 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
 
     private fun buildInterface(typeDef: InterfaceTypeDefinition) {
         val interfaceType = TypeSpec.interfaceBuilder(typeDef.name).apply {
+            addProperty(PropertySpec.builder("__typename", String::class).build())
+
             typeDef.fieldDefinitions.forEach { field ->
                 val fieldType = getKotlinType(field.type, overriddenPackage = clientPackage)
                 addProperty(PropertySpec.builder(field.name, fieldType).apply {
@@ -73,6 +75,17 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
         }
 
         val overriddenFields = if (typeDef is ObjectTypeDefinition) schema.getOverriddenFields(typeDef) else emptyList()
+
+        clientType.addProperty(PropertySpec.builder("__typename", String::class).apply {
+            if (isInterfaceImpl || overriddenFields.isNotEmpty()) {
+                addModifiers(KModifier.OVERRIDE)
+            }
+            getter(FunSpec.getterBuilder().apply {
+                addCode(CodeBlock.builder().apply {
+                    addStatement("return element[%S]!!.%T.content", "__typename", jsonPrimitiveFunction)
+                }.build())
+            }.build())
+        }.build())
 
         fields?.forEach { field ->
             val fieldType = getKotlinType(field.type, overriddenPackage = clientPackage)
