@@ -49,7 +49,11 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                 }
 
                 else -> {
-                    if (isScalar(baseFieldType)) {
+                    if (isEnum(baseFieldType)) {
+                        add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
+                            add("%L?.name", fieldName)
+                        })
+                    } else if (isScalar(baseFieldType)) {
                         if (isCustomScalar(baseFieldType)) {
                             val scalarSerializer = scalarSerializer((baseFieldType as TypeName).name)
                             if (kotlinFieldType.isNullable) {
@@ -130,7 +134,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
     }
 
     fun execute() {
-        file.suppress("FunctionName")
+        file.suppress("FunctionName", "UNUSED_PARAMETER")
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
                 val objectType = ClassName(serverPackage, type.name)

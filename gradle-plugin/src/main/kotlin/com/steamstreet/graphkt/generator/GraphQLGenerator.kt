@@ -50,6 +50,11 @@ open class GraphQLGenerator(
         }
     }
 
+    fun isEnum(type: Type<Type<*>>): Boolean {
+        val typeDef = schema.getType(type)
+        return (typeDef.isPresent && typeDef.get() is EnumTypeDefinition)
+    }
+
     fun isCustomScalar(type: Type<Type<*>>): Boolean {
         return when (type) {
             is NonNullType -> {
@@ -111,10 +116,11 @@ open class GraphQLGenerator(
                         simpleName = "Int"
                     }
                     else -> {
-                        // enum types DO NOT get a postfix
-                        val schemaType = schema.types().values.find { it.name == typeName?.name }
+                        // enum types DO NOT get a postfix and they always use the base package
+                        val schemaType = schema.getType(typeName).get()
                         if (schemaType is EnumTypeDefinition) {
                             simpleName = typeName?.name ?: ""
+                            typePackage = packageName
                         } else {
                             schema.scalars().values.find { it.name == typeName?.name }?.let {
                                 simpleName = typeName?.name ?: ""

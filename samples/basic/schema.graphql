@@ -25,6 +25,13 @@ type Query {
     aScalar: ASampleScalar
 
     someFunction(input: Int): [Another!]
+
+    aEnum: SomeEnum
+}
+
+enum SomeEnum {
+    SOME_VALUE
+    ANOTHER_VALUE
 }
 
 interface Common {

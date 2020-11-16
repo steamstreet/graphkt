@@ -161,13 +161,20 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                             addStatement("it.%T.content", jsonPrimitiveFunction)
                         }
                     } else {
-                        beginControlFlow("it.%T.let", jsonObjectFunction)
-                        if (schema.isInterfaceOrUnion(baseType)) {
-                            addStatement("${typeName}Impl(it)")
-                        } else {
-                            addStatement("${typeName}(it)")
+                        val typeDefinition = schema.getType(baseType)
+                        if (typeDefinition.isPresent) {
+                            if (typeDefinition.get() is EnumTypeDefinition) {
+                                addStatement("%T.valueOf(it.%T.content)", getKotlinType(baseType).copy(nullable = false), jsonPrimitiveFunction)
+                            } else {
+                                beginControlFlow("it.%T.let", jsonObjectFunction)
+                                if (schema.isInterfaceOrUnion(baseType)) {
+                                    addStatement("${typeName}Impl(it)")
+                                } else {
+                                    addStatement("${typeName}(it)")
+                                }
+                                endControlFlow()
+                            }
                         }
-                        endControlFlow()
                     }
                 }
             }
