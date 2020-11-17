@@ -52,6 +52,7 @@ class ServerRequestSelection(val call: ApplicationCall,
                 is StringValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
                 is IntValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
                 is FloatValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+                null -> JsonNull
                 else -> TODO("not implemented")
             }
         }

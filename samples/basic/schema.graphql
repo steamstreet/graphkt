@@ -27,6 +27,8 @@ type Query {
     someFunction(input: Int): [Another!]
 
     aEnum: SomeEnum
+
+    someEnumFunction(input: SomeEnum!): String
 }
 
 enum SomeEnum {
@@ -59,4 +61,6 @@ input SomeInput {
     value: String!
 
     aScalar: ASampleScalar
+
+    anEnum: SomeEnum
 }

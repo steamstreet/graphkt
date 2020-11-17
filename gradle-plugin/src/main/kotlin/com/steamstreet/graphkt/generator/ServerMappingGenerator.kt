@@ -97,7 +97,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
         val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
         val inputKotlinType = getKotlinType(def.type)
 
-        fun addPrimitive(str: String) {
+        fun CodeBlock.Builder.addPrimitive(str: String) {
             val getterName = "$str${if (inputKotlinType.isNullable) "OrNull" else ""}"
             if (!(str == "content" && !inputKotlinType.isNullable)) {
                 file.addImport("kotlinx.serialization.json", "jsonPrimitive", getterName)
@@ -107,14 +107,21 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
 
         if (inputKotlinType is ClassName) {
             when (inputKotlinType.canonicalName) {
-                "kotlin.String" -> addPrimitive("content")
-                "kotlin.Int" -> addPrimitive("int")
-                "kotlin.Boolean" -> addPrimitive("boolean")
-                "kotlin.Float" -> addPrimitive("float")
+                "kotlin.String" -> this.addPrimitive("content")
+                "kotlin.Int" -> this.addPrimitive("int")
+                "kotlin.Boolean" -> this.addPrimitive("boolean")
+                "kotlin.Float" -> this.addPrimitive("float")
                 else -> {
                     file.addImport("kotlinx.serialization.builtins", "serializer")
                     file.addImport(jsonParserType.packageName, jsonParserType.simpleName)
-                    add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
+
+                    if (isEnum(baseFieldType)) {
+                        add("""%T.valueOf(%L)""", inputKotlinType, buildCodeBlock {
+                            this.addPrimitive("content")
+                        })
+                    } else {
+                        add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
+                    }
                 }
             }
         } else if (baseFieldType is ListType) {
