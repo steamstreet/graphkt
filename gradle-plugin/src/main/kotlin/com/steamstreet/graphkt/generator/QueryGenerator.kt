@@ -140,10 +140,11 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                     .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
                     .returns(ClassName(clientPackage, operationType.name.capitalize()))
                     .addModifiers(KModifier.SUSPEND)
+                    .addParameter(ParameterSpec.builder("name", ClassName("kotlin", "String").copy(true)).defaultValue("null").build())
                     .addParameter(ParameterSpec.builder("block",
                             LambdaTypeName.get(ClassName(clientPackage, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
-                    .beginControlFlow("val result = execute {")
+                    .beginControlFlow("val result = execute(name, json) {")
                     .addStatement("""this.type = "${operationType.name}"""")
                     .addStatement("""_${operationType.typeName.name}Query(this).block()""")
                     .endControlFlow()

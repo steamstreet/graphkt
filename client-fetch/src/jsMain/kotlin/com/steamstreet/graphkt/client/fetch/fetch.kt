@@ -20,8 +20,8 @@ class GraphQLJsClient(val endpoint: String,
     /**
      * Execute a query. The query can optionally be named.
      */
-    override suspend fun execute(name: String?, block: QueryWriter.() -> Unit): String {
-        val writer = AppendableQueryWriter()
+    override suspend fun execute(name: String?, json: Json, block: QueryWriter.() -> Unit): String {
+        val writer = AppendableQueryWriter(json)
         writer.block()
 
         val query = writer.toString()

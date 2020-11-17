@@ -10,7 +10,8 @@ import kotlin.random.Random
  * Query writer that uses the Appendable interface.
  */
 class AppendableQueryWriter(
-        private var indent: Int = 0
+        private val json: Json,
+        private var indent: Int = 0,
 ) : QueryWriter {
     private val appender = StringBuilder()
 
@@ -55,7 +56,7 @@ class AppendableQueryWriter(
             realKey = "$name$index"
         }
 
-        val jsonValue = Json.encodeToJsonElement(serializer, value)
+        val jsonValue = json.encodeToJsonElement(serializer, value)
         variables[realKey] = TypeAndValue(type, jsonValue)
         return realKey
     }
