@@ -1,7 +1,10 @@
 package com.steamstreet.graphkt.client.fetch
 
-
-import com.steamstreet.graphkt.client.*
+import com.steamstreet.graphkt.GraphQLError
+import com.steamstreet.graphkt.client.AppendableQueryWriter
+import com.steamstreet.graphkt.client.GraphQLClient
+import com.steamstreet.graphkt.client.GraphQLClientException
+import com.steamstreet.graphkt.client.QueryWriter
 import kotlinx.browser.window
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.Json
@@ -62,6 +65,7 @@ class GraphQLJsClient(val endpoint: String,
         val result = window.fetch("${endpoint}?${queryParameters.joinToString("&")}", RequestInit(
                 headers = kotlin.js.json(*(headerPairs.toTypedArray()))
         )).await()
+
         return result.text().await()
     }
 

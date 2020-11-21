@@ -1,7 +1,7 @@
 package com.steamstreet.graphkt.server.ktor
 
+import com.steamstreet.graphkt.GraphQLError
 import com.steamstreet.graphkt.server.RequestSelection
-import graphql.GraphQLError
 import graphql.language.*
 import graphql.parser.Parser
 import io.ktor.application.*
@@ -12,6 +12,8 @@ import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.util.*
 import kotlinx.serialization.json.*
+import java.io.PrintWriter
+import java.io.StringWriter
 
 interface GraphQLConfiguration {
     fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
@@ -21,7 +23,7 @@ interface GraphQLConfiguration {
      * Install an error handler. This won't impact the response, but will
      * allow for extra handling (logging, etc.)
      */
-    fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
+    fun errorHandler(block: suspend (Throwable) -> Unit)
 }
 
 class ServerRequestSelection(val call: ApplicationCall,
@@ -80,7 +82,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 
     var queryGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
     var mutationGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
-    var errorHandler: (suspend (List<GraphQLError>) -> Unit)? = null
+    var errorHandler: (suspend (t: Throwable) -> Unit)? = null
     val config: GraphQLConfiguration = object : GraphQLConfiguration {
         override fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?) {
             queryGetter = block
@@ -90,13 +92,35 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             mutationGetter = block
         }
 
-        override fun errorHandler(block: suspend (List<GraphQLError>) -> Unit) {
+        override fun errorHandler(block: suspend (Throwable) -> Unit) {
             errorHandler = block
         }
     }
     config.block()
 
 
+    suspend fun ApplicationCall.respondError(t: Throwable) {
+        if (errorHandler != null) {
+            errorHandler?.invoke(t)
+        } else {
+            t.printStackTrace()
+        }
+
+        val writer = StringWriter()
+        val printWriter = PrintWriter(writer)
+        t.printStackTrace(printWriter)
+        printWriter.flush()
+
+        val error = GraphQLError(t.message ?: "Internal Server Error", extensions = buildJsonObject {
+            this.put("stacktrace", writer.toString())
+        })
+
+        val responseEnvelope = JsonObject(mapOf("errors" to buildJsonArray {
+            add(json.encodeToJsonElement(GraphQLError.serializer(), error))
+        }))
+
+        respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+    }
 
     post {
         val request = call.receiveText()
@@ -114,8 +138,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 
             call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
         } catch (t: Throwable) {
-            t.printStackTrace()
-            throw t
+            call.respondError(t)
         }
     }
 
@@ -135,8 +158,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 
             call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
         } catch (t: Throwable) {
-            t.printStackTrace()
-            throw t
+            call.respondError(t)
         }
     }
 }

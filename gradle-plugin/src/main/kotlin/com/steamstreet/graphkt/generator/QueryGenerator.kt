@@ -135,7 +135,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
         }
 
         schema.schemaDefinition().get().operationTypeDefinitions.forEach { operationType ->
-            val jsonObjectFunction = ClassName("kotlinx.serialization.json", "jsonObject")
+            val jsonFunction = ClassName(packageName, "json")
             file.addFunction(FunSpec.builder(operationType.name)
                     .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
                     .returns(ClassName(clientPackage, operationType.name.capitalize()))
@@ -144,13 +144,11 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                     .addParameter(ParameterSpec.builder("block",
                             LambdaTypeName.get(ClassName(clientPackage, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
-                    .beginControlFlow("val result = execute(name, json) {")
+                    .beginControlFlow("val result = executeAndParse(name, %T, ::${operationType.typeName.name}) {", jsonFunction)
                     .addStatement("""this.type = "${operationType.name}"""")
                     .addStatement("""_${operationType.typeName.name}Query(this).block()""")
                     .endControlFlow()
-                    .addStatement("""return ${operationType.name.capitalize()}(%T.parseToJsonElement(result).%T["data"]!!.%T)""",
-                            ClassName(packageName, "json"), jsonObjectFunction, jsonObjectFunction
-                    )
+                    .addStatement("""return result""")
                     .build())
         }
 
