@@ -151,12 +151,14 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                         it.name == typeName
                     } != null
 
-                    if (isCustomScalar) {
+                    if (isCustomScalar && scalarSerializer(typeName) != null) {
                         addStatement("%T.decodeFromJsonElement(%T, it)", jsonParserType, scalarSerializer(typeName))
                     } else if (isScalar) {
                         if (!isNonNull) {
-                            addStatement("it.%T.%T", jsonPrimitiveFunction,
-                                    ClassName("kotlinx.serialization.json", "content${orNullText}"))
+                            addStatement(
+                                "it.%T.%T", jsonPrimitiveFunction,
+                                ClassName("kotlinx.serialization.json", "content${orNullText}")
+                            )
                         } else {
                             addStatement("it.%T.content", jsonPrimitiveFunction)
                         }
