@@ -13,4 +13,12 @@ interface RequestSelection {
      * The variables that were passed to the request.
      */
     fun variable(key: String): JsonElement
+
+    /**
+     * Set this node as the context for current processing. Generally this will cause
+     * a thread local variable to be set.
+     */
+    fun setAsContext() {}
 }
+
+expect fun gqlRequestContext(): RequestSelection

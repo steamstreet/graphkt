@@ -180,6 +180,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                         .addParameter("field", requestSelectionClass)
                         .apply {
                             beginControlFlow("val fields = field.children.associate {")
+                            addStatement("it.setAsContext()")
                             beginControlFlow("val value = when(it.name) {")
                             fieldDefinitions.forEach { field ->
                                 if (field.inputValueDefinitions.isEmpty()) {

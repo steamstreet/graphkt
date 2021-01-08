@@ -2,6 +2,7 @@ package com.steamstreet.graphkt.server.ktor
 
 import com.steamstreet.graphkt.GraphQLError
 import com.steamstreet.graphkt.server.RequestSelection
+import com.steamstreet.graphkt.server.gqlContext
 import graphql.language.*
 import graphql.parser.Parser
 import io.ktor.application.*
@@ -62,6 +63,10 @@ class ServerRequestSelection(val call: ApplicationCall,
 
     override fun variable(key: String): JsonElement {
         return variables[key]!!
+    }
+
+    override fun setAsContext() {
+        gqlContext.set(this)
     }
 }
 
