@@ -87,6 +87,16 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
             }.build())
         }.build())
 
+        clientType.addFunction(FunSpec.builder("hasField").apply {
+            addParameter("key", String::class)
+
+            addCode(CodeBlock.builder().apply {
+                addStatement("return element.containsKey(key)")
+            }.build())
+
+            returns(Boolean::class)
+        }.build())
+
         fields?.forEach { field ->
             val fieldType = getKotlinType(field.type, overriddenPackage = clientPackage)
 
