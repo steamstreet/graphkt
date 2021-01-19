@@ -24,12 +24,16 @@ interface GraphQLConfiguration {
      * Install an error handler. This won't impact the response, but will
      * allow for extra handling (logging, etc.)
      */
-    fun errorHandler(block: suspend (Throwable) -> Unit)
+    fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
 }
 
-class ServerRequestSelection(val call: ApplicationCall,
-                             val variables: Map<String, JsonElement>,
-                             val node: Node<*>) : RequestSelection {
+class ServerRequestSelection(
+    val parent: ServerRequestSelection?,
+    val call: ApplicationCall,
+    val variables: Map<String, JsonElement>,
+    val node: Node<*>,
+    val errors: MutableList<GraphQLError>
+) : RequestSelection {
     override val name: String
         get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
     override val children: List<RequestSelection>
@@ -39,7 +43,7 @@ class ServerRequestSelection(val call: ApplicationCall,
                 is SelectionSet -> node
                 else -> TODO("not implemented")
             }
-            return selectionSet.selections.map { ServerRequestSelection(call, variables, it) }
+            return selectionSet.selections.map { ServerRequestSelection(this, call, variables, it, errors) }
         }
     override val parameters: Map<String, String>
         get() = TODO("not implemented")
@@ -68,6 +72,23 @@ class ServerRequestSelection(val call: ApplicationCall,
     override fun setAsContext() {
         gqlContext.set(this)
     }
+
+    override fun error(t: Throwable) {
+        val writer = StringWriter()
+        val printWriter = PrintWriter(writer)
+        t.printStackTrace(printWriter)
+        printWriter.flush()
+
+        val error = GraphQLError(t.message ?: "Internal Server Error", extensions = buildJsonObject {
+            this.put("stacktrace", writer.toString())
+        }, path = path)
+        errors.add(error)
+    }
+
+    private val path: List<String>
+        get() {
+            return (parent?.path.orEmpty() + ((node as? NamedNode<*>)?.name)).filterNotNull()
+        }
 }
 
 /**
@@ -82,12 +103,12 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         val parser = Parser()
         val result = parser.parseDocument(query)
         return result.definitions.firstOrNull() as? OperationDefinition
-                ?: throw IllegalArgumentException("Operation was not found")
+            ?: throw IllegalArgumentException("Operation was not found")
     }
 
     var queryGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
     var mutationGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
-    var errorHandler: (suspend (t: Throwable) -> Unit)? = null
+    var errorHandler: (suspend (t: List<GraphQLError>) -> Unit)? = null
     val config: GraphQLConfiguration = object : GraphQLConfiguration {
         override fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?) {
             queryGetter = block
@@ -97,7 +118,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             mutationGetter = block
         }
 
-        override fun errorHandler(block: suspend (Throwable) -> Unit) {
+        override fun errorHandler(block: suspend (List<GraphQLError>) -> Unit) {
             errorHandler = block
         }
     }
@@ -105,12 +126,6 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 
 
     suspend fun ApplicationCall.respondError(t: Throwable) {
-        if (errorHandler != null) {
-            errorHandler?.invoke(t)
-        } else {
-            t.printStackTrace()
-        }
-
         val writer = StringWriter()
         val printWriter = PrintWriter(writer)
         t.printStackTrace(printWriter)
@@ -120,11 +135,54 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             this.put("stacktrace", writer.toString())
         })
 
+        if (errorHandler != null) {
+            errorHandler?.invoke(listOf(error))
+        } else {
+            t.printStackTrace()
+        }
+
         val responseEnvelope = JsonObject(mapOf("errors" to buildJsonArray {
             add(json.encodeToJsonElement(GraphQLError.serializer(), error))
         }))
 
         respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+    }
+
+    fun buildResponse(data: JsonElement, errors: List<GraphQLError>): JsonObject {
+        return buildJsonObject {
+            put("data", data)
+            if (errors.isNotEmpty()) {
+                put("errors", buildJsonArray {
+                    errors.forEach {
+                        add(json.encodeToJsonElement(GraphQLError.serializer(), it))
+                    }
+                })
+            }
+        }
+    }
+
+    suspend fun invoke(
+        call: ApplicationCall, query: OperationDefinition?, variables: Map<String, JsonElement>?,
+        function: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)?
+    ) {
+        try {
+            val errors = ArrayList<GraphQLError>()
+            val selection = ServerRequestSelection(
+                null, call, variables ?: emptyMap(),
+                query?.selectionSet ?: throw IllegalArgumentException(),
+                errors
+            )
+            val result = function?.invoke(call, selection) ?: throw NotFoundException()
+            val response = buildResponse(result, errors)
+
+            if (errors.isNotEmpty()) {
+                errorHandler?.invoke(errors)
+            }
+
+            call.respondText(response.toString(), ContentType.Application.Json, HttpStatusCode.OK)
+        } catch (t: Throwable) {
+            call.respondError(t)
+        }
     }
 
     post {
@@ -135,16 +193,7 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         }
         val variables = requestElement["variables"]?.jsonObject
 
-        try {
-            val selection = ServerRequestSelection(call, variables ?: emptyMap(),
-                    query?.selectionSet ?: throw IllegalArgumentException())
-            val result = mutationGetter?.invoke(call, selection) ?: throw NotFoundException()
-            val responseEnvelope = JsonObject(mapOf("data" to result))
-
-            call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
-        } catch (t: Throwable) {
-            call.respondError(t)
-        }
+        invoke(call, query, variables, mutationGetter)
     }
 
     get {
@@ -154,16 +203,6 @@ fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         val variables = call.request.queryParameters["variables"]?.let {
             json.parseToJsonElement(it) as JsonObject
         }
-
-        try {
-            val selection = ServerRequestSelection(call, variables ?: emptyMap(),
-                    query?.selectionSet ?: throw IllegalArgumentException())
-            val result = queryGetter?.invoke(call, selection) ?: throw NotFoundException()
-            val responseEnvelope = JsonObject(mapOf("data" to result))
-
-            call.respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
-        } catch (t: Throwable) {
-            call.respondError(t)
-        }
+        invoke(call, query, variables, queryGetter)
     }
 }

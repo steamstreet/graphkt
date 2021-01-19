@@ -19,6 +19,11 @@ interface RequestSelection {
      * a thread local variable to be set.
      */
     fun setAsContext() {}
+
+    /**
+     * Declare an error for this selection.
+     */
+    fun error(t: Throwable)
 }
 
 expect fun gqlRequestContext(): RequestSelection

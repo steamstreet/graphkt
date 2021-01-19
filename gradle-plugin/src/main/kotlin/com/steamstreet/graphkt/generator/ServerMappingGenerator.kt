@@ -181,17 +181,19 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                         .apply {
                             beginControlFlow("val fields = field.children.associate {")
                             addStatement("it.setAsContext()")
-                            beginControlFlow("val value = when(it.name) {")
+                            beginControlFlow("val value = try {")
+                            beginControlFlow("when(it.name) {")
                             fieldDefinitions.forEach { field ->
                                 if (field.inputValueDefinitions.isEmpty()) {
                                     addStatement("%S -> gql_%L(it)", field.name, field.name)
                                 } else {
                                     addStatement("%S -> gql_%L(it, %L)", field.name, field.name,
-                                            field.inputValueDefinitions.map {
-                                                CodeBlock.builder().apply {
-                                                    variableToInputParameter(it)
-                                                }.build().toString()
-                                            }.joinToString(", "))
+                                        field.inputValueDefinitions.map {
+                                            CodeBlock.builder().apply {
+                                                variableToInputParameter(it)
+                                            }.build().toString()
+                                        }.joinToString(", ")
+                                    )
                                 }
                             }
 
@@ -210,6 +212,10 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                                 addStatement(""""__typename" -> %T("${type.name}")""", jsonPrimitiveType)
                             }
                             addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+                            endControlFlow()
+                            nextControlFlow("catch (t: Throwable)")
+                            addStatement("it.error(t)")
+                            addStatement("JsonNull")
                             endControlFlow()
                             addStatement("it.name to value")
                             endControlFlow()
