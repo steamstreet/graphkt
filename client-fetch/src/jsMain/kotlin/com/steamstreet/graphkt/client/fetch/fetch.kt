@@ -90,7 +90,7 @@ class GraphQLJsClient(val endpoint: String,
         )).await()
 
         if (result.status >= 500) {
-            throw GraphQLClientException(listOf(GraphQLError(result.statusText, null, null, null)), null)
+            throw GraphQLClientException(GraphQLError(result.statusText, null, null, null))
         }
         return result.text().await()
     }

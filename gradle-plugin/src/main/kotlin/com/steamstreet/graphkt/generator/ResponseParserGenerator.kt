@@ -50,9 +50,19 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
         val clientType = TypeSpec.classBuilder(typeDef.name + (if (isInterfaceImpl) "Impl" else ""))
 
         val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
-        clientType.primaryConstructor(FunSpec.constructorBuilder()
+        val responseType = ClassName("com.steamstreet.graphkt.client", "GraphQLResponse")
+        clientType.primaryConstructor(
+            FunSpec.constructorBuilder()
+                .addParameter("response", responseType)
                 .addParameter("element", jsonObjectType)
-                .build())
+                .build()
+        )
+            .addProperty(
+                PropertySpec.builder("response", responseType)
+                    .initializer("response")
+                    .addModifiers(KModifier.PRIVATE)
+                    .build()
+            )
                 .addProperty(PropertySpec.builder("element", jsonObjectType)
                         .initializer("element")
                         .addModifiers(KModifier.PRIVATE)
@@ -107,6 +117,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                 }
             }.getter(FunSpec.getterBuilder().apply {
                 addCode(CodeBlock.builder().apply {
+                    addStatement("response.throwIfError(%S)", field.name)
                     addStatement("val result = element[%S]?.takeIf { it !is %T }?.let {", field.name, jsonNullType)
                     indent()
 
@@ -115,7 +126,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                     } else {
                         field.type
                     }
-                    jsonExtractCode(statementType)
+                    jsonExtractCode(statementType, field.name)
                     unindent()
                     addStatement("}")
                 }.build())
@@ -131,12 +142,12 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
         responsesFile.addType(clientType.build())
     }
 
-    fun CodeBlock.Builder.jsonExtractCode(type: Type<Type<*>>) {
+    fun CodeBlock.Builder.jsonExtractCode(type: Type<Type<*>>, fieldName: String) {
         val isNonNull = type is NonNullType
         val baseType = (type as? NonNullType)?.type ?: type
         if (baseType is ListType) {
             beginControlFlow("it.%T.map", jsonArrayFunction)
-            jsonExtractCode(baseType.type)
+            jsonExtractCode(baseType.type, fieldName)
             endControlFlow()
         } else if (baseType is TypeName) {
             val typeName = baseType.name
@@ -182,7 +193,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                                 if (schema.isInterfaceOrUnion(baseType)) {
                                     addStatement("${typeName}Impl(it)")
                                 } else {
-                                    addStatement("${typeName}(it)")
+                                    addStatement("${typeName}(response.forElement(%S), it)", fieldName)
                                 }
                                 endControlFlow()
                             }

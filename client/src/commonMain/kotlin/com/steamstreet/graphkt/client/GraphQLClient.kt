@@ -7,6 +7,25 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
+class DefaultGraphQLResponse(
+    val path: String,
+    override val errors: List<GraphQLError>?,
+    private val errorsByPath: Map<String, GraphQLError>
+) : GraphQLResponse {
+    override fun forElement(name: String): GraphQLResponse {
+        return DefaultGraphQLResponse(
+            listOfNotNull(path.ifBlank { null }, name).joinToString("."), errors, errorsByPath
+        )
+    }
+
+    override fun throwIfError(name: String) {
+        val elementPath = listOfNotNull(path.ifBlank { null }, name).joinToString(".")
+        errorsByPath[elementPath]?.let {
+            throw GraphQLClientException(it)
+        }
+    }
+}
+
 /**
  * Interface for a GraphQL client.
  */
@@ -20,17 +39,23 @@ interface GraphQLClient {
     /**
      * Execute a query and parse the response envelope.
      */
-    suspend fun <T> executeAndParse(name: String? = null, json: Json, init: (JsonObject) -> T, block: QueryWriter.() -> Unit): T {
+    suspend fun <T> executeAndParse(
+        name: String? = null,
+        json: Json,
+        init: (GraphQLResponse, JsonObject) -> T,
+        block: QueryWriter.() -> Unit
+    ): T {
         val result = execute(name, json, block)
         val resultElement = json.parseToJsonElement(result)
         val data = resultElement.jsonObject["data"]?.jsonObject
         val errors = resultElement.jsonObject["errors"]?.jsonArray
 
-        if (errors != null) {
-            throw GraphQLClientException(json.decodeFromJsonElement(ListSerializer(GraphQLError.serializer()), errors),
-                    data?.let(init))
+        val errorList = errors?.let {
+            json.decodeFromJsonElement(ListSerializer(GraphQLError.serializer()), it)
         }
-
-        return init(data!!)
+        val response = DefaultGraphQLResponse("", errorList, errorList?.associateBy {
+            it.path?.joinToString(".") ?: ""
+        } ?: emptyMap())
+        return init(response, data!!)
     }
 }
