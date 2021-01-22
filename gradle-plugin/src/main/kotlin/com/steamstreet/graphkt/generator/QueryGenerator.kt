@@ -24,6 +24,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
                 file.addType(TypeSpec.classBuilder("_${type.name}$label")
+                    .addAnnotation(ClassName("com.steamstreet.graphkt", "GraphKtQuery"))
                         .primaryConstructor(FunSpec.constructorBuilder()
                                 .addParameter("writer", writerClass)
                                 .build())
