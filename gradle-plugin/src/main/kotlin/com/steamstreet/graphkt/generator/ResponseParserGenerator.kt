@@ -12,6 +12,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                               packageName: String,
                               properties: Properties,
                               outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+    val responseType = ClassName("com.steamstreet.graphkt.client", "GraphQLResponse")
 
     private val responsesFile = FileSpec.builder("$packageName.client", "responses")
 
@@ -50,7 +51,6 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
         val clientType = TypeSpec.classBuilder(typeDef.name + (if (isInterfaceImpl) "Impl" else ""))
 
         val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
-        val responseType = ClassName("com.steamstreet.graphkt.client", "GraphQLResponse")
         clientType.primaryConstructor(
             FunSpec.constructorBuilder()
                 .addParameter("response", responseType)
@@ -191,7 +191,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                             } else {
                                 beginControlFlow("it.%T.let", jsonObjectFunction)
                                 if (schema.isInterfaceOrUnion(baseType)) {
-                                    addStatement("${typeName}Impl(it)")
+                                    addStatement("${typeName}Impl(response.forElement(%S), it)", fieldName)
                                 } else {
                                     addStatement("${typeName}(response.forElement(%S), it)", fieldName)
                                 }
