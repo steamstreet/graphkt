@@ -26,4 +26,4 @@ interface RequestSelection {
     fun error(t: Throwable)
 }
 
-expect fun gqlRequestContext(): RequestSelection
+expect fun gqlRequestContext(): RequestSelection?
