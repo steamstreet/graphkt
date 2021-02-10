@@ -51,7 +51,11 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                 else -> {
                     if (isEnum(baseFieldType)) {
                         add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
-                            add("%L?.name", fieldName)
+                            if (fieldType is NonNullType) {
+                                add("%L.name", fieldName)
+                            } else {
+                                add("%L?.name", fieldName)
+                            }
                         })
                     } else if (isScalar(baseFieldType)) {
                         if (isCustomScalar(baseFieldType)) {
@@ -99,8 +103,9 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
 
         fun CodeBlock.Builder.addPrimitive(str: String) {
             val getterName = "$str${if (inputKotlinType.isNullable) "OrNull" else ""}"
+            file.addImport("kotlinx.serialization.json", "jsonPrimitive")
             if (!(str == "content" && !inputKotlinType.isNullable)) {
-                file.addImport("kotlinx.serialization.json", "jsonPrimitive", getterName)
+                file.addImport("kotlinx.serialization.json", getterName)
             }
             add("""it.inputParameter("$fieldName").jsonPrimitive.$getterName""")
         }
@@ -141,7 +146,7 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
     }
 
     fun execute() {
-        file.suppress("FunctionName", "UNUSED_PARAMETER")
+        file.suppress("FunctionName", "UNUSED_PARAMETER", "unused", "RemoveRedundantQualifierName")
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
                 val objectType = ClassName(serverPackage, type.name)
