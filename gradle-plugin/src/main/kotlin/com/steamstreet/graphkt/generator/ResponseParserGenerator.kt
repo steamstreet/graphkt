@@ -132,7 +132,11 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
                 }.build())
 
                 if (field.type is NonNullType) {
-                    addStatement("return result ?: throw %T()", ClassName("kotlin", "NullPointerException"))
+                    addStatement(
+                        "return result ?: throw %T(%S)",
+                        ClassName("kotlin", "NullPointerException"),
+                        "${typeDef.name}: ${field.name}"
+                    )
                 } else {
                     addStatement("return result")
                 }
