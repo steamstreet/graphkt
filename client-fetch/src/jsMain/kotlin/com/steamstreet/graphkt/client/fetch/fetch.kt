@@ -72,7 +72,7 @@ class GraphQLJsClient(val endpoint: String,
     suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
 
-        val headerPairs = headers.map { it.key to it.value } + ("Accept" to "application/json") + ("Content-Type" to "application/graphql")
+        val headerPairs = headers.map { it.key to it.value } + ("Accept" to "application/json") + ("Content-Type" to "application/graphql; charset=utf8")
 
         val envelope = buildJsonObject {
             this.put("query", query)
