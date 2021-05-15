@@ -17,5 +17,11 @@ kotlin {
                 api(project(":common-runtime"))
             }
         }
+
+        val jvmMain by getting {
+            dependencies {
+                api("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
+            }
+        }
     }
 }
