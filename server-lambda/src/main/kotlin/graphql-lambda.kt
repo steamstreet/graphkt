@@ -1,6 +1,6 @@
 package com.steamstreet.graphkt.server.lambda
 
-import com.amazonaws.services.lambda.runtime.events.APIGatewayProxyRequestEvent
+import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent
 import com.steamstreet.graphkt.GraphQLError
 import com.steamstreet.graphkt.server.RequestSelection
 import com.steamstreet.graphkt.server.ServerRequestSelection
@@ -10,7 +10,6 @@ import graphql.GraphQLException
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
-import java.io.ByteArrayOutputStream
 import java.io.OutputStream
 
 private val json = Json { }
@@ -30,14 +29,14 @@ class ProxyResponse(
  */
 class GraphQLLambda {
     private lateinit var errorBlock: suspend (List<GraphQLError>) -> Unit
-    private lateinit var mutationBlock: suspend (APIGatewayProxyRequestEvent, RequestSelection) -> JsonElement?
-    private lateinit var queryBlock: suspend (APIGatewayProxyRequestEvent, RequestSelection) -> JsonElement?
+    private lateinit var mutationBlock: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?
+    private lateinit var queryBlock: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?
 
-    fun query(block: suspend (APIGatewayProxyRequestEvent, RequestSelection) -> JsonElement?) {
+    fun query(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
         this.queryBlock = block
     }
 
-    fun mutation(block: suspend (APIGatewayProxyRequestEvent, RequestSelection) -> JsonElement?) {
+    fun mutation(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
         this.mutationBlock = block
     }
 
@@ -49,9 +48,9 @@ class GraphQLLambda {
         this.errorBlock = block
     }
 
-    fun execute(event: APIGatewayProxyRequestEvent, out: OutputStream) = runBlocking {
+    fun execute(event: APIGatewayV2HTTPEvent, out: OutputStream) = runBlocking {
         val response = try {
-            when (event.httpMethod) {
+            when (event.requestContext.http.method) {
                 "GET" -> {
                     val query = event.queryStringParameters["query"]
                     val variablesString = event.queryStringParameters["variables"] ?: "{}"
@@ -128,28 +127,3 @@ class GraphQLLambda {
 
 fun GraphQLLambda(block: GraphQLLambda.()->Unit): GraphQLLambda =
     GraphQLLambda().apply(block)
-
-fun main() {
-    val lambda = GraphQLLambda {
-        query { event, selection ->
-            buildJsonObject {
-                put("something", "value")
-            }
-        }
-
-        mutation { event, selection ->
-            buildJsonObject {
-                put("something", "value")
-            }
-        }
-    }
-
-    val output = ByteArrayOutputStream()
-    lambda.execute(APIGatewayProxyRequestEvent()
-        .withHttpMethod("GET")
-        .withQueryStringParamters(
-        mapOf("query" to """query something { person { name } }""")
-    ), output)
-
-    println(String(output.toByteArray()))
-}

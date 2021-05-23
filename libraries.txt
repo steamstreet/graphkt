@@ -62,4 +62,4 @@ org.apache.commons:commons-collections4=4.4
 org.apache.commons:commons-csv=1.7
 
 # ------ LAMBDA --------------
-com.amazonaws:aws-lambda-java-events=2.2.4
+com.amazonaws:aws-lambda-java-events=3.8.0
