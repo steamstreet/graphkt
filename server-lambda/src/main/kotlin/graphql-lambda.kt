@@ -11,6 +11,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 import java.io.OutputStream
+import java.util.*
 
 private val json = Json { }
 
@@ -82,7 +83,12 @@ class GraphQLLambda {
                 }
 
                 "POST" -> {
-                    val request = Json.parseToJsonElement(event.body).jsonObject
+                    val body = if (event.isBase64Encoded) {
+                        String(Base64.getDecoder().decode(event.body))
+                    } else {
+                        event.body
+                    }
+                    val request = Json.parseToJsonElement(body).jsonObject
                     val operation = request["query"]?.jsonPrimitive?.contentOrNull?.let {
                         parseGraphQLOperation(it)
                     } ?: throw IllegalArgumentException()
