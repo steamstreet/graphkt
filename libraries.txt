@@ -1,7 +1,7 @@
 # ------ KOTLIN --------
-KOTLIN_VERSION=1.4.10
-KOTLIN_SERIALIZATION_VERSION=1.0.0
-KOTLIN_COROUTINES_VERSION=1.3.9
+KOTLIN_VERSION=1.5.10
+KOTLIN_SERIALIZATION_VERSION=1.2.1
+KOTLIN_COROUTINES_VERSION=1.5.0
 
 org.jetbrains.kotlin:kotlin-reflect=$KOTLIN_VERSION
 org.jetbrains.kotlinx:kotlinx-serialization-core=$KOTLIN_SERIALIZATION_VERSION
@@ -12,7 +12,7 @@ org.jetbrains.kotlinx:kotlinx-coroutines-core-js=$KOTLIN_COROUTINES_VERSION
 org.jetbrains.kotlinx:kotlinx-coroutines-jdk8=$KOTLIN_COROUTINES_VERSION
 
 # ------ KTOR --------
-KOTLIN_KTOR_VERSION=1.4.0
+KOTLIN_KTOR_VERSION=1.5.4
 
 io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
 io.ktor:ktor-server-test-host=$KOTLIN_KTOR_VERSION
