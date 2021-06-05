@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
     jvm()
-    js {
+    js(BOTH) {
         browser {
             testTask {
                 enabled = false

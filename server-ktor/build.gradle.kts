@@ -9,8 +9,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
 
-    implementation("ch.qos.logback:logback-classic")
-
     api(project(":common-runtime"))
     api(project(":server"))
 

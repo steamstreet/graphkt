@@ -5,7 +5,7 @@ plugins {
 }
 
 kotlin {
-    js {
+    js(BOTH) {
         browser {
 //            val main by compilations.getting {
 //                kotlinOptions {

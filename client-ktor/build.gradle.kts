@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
     jvm()
-    js { browser() }
+    js(BOTH) { browser() }
 
     sourceSets {
         commonMain {
@@ -20,6 +20,3 @@ kotlin {
         }
     }
 }
-
-tasks["jsBrowserWebpack"].enabled = false
-tasks["jsBrowserProductionWebpack"].enabled = false

@@ -12,7 +12,7 @@ org.jetbrains.kotlinx:kotlinx-coroutines-core-js=$KOTLIN_COROUTINES_VERSION
 org.jetbrains.kotlinx:kotlinx-coroutines-jdk8=$KOTLIN_COROUTINES_VERSION
 
 # ------ KTOR --------
-KOTLIN_KTOR_VERSION=1.5.4
+KOTLIN_KTOR_VERSION=1.6.0
 
 io.ktor:ktor-http-jvm=$KOTLIN_KTOR_VERSION
 io.ktor:ktor-server-test-host=$KOTLIN_KTOR_VERSION
@@ -37,7 +37,12 @@ com.squareup:kotlinpoet=1.6.0
 com.jayway.jsonpath:json-path=2.4.0
 
 # ------ LOGGING --------
-ch.qos.logback:logback-classic=1.2.1
+SLF4J_VERSION=1.8.0-beta4
+org.slf4j:slf4j-api=$SLF4J_VERSION
+org.slf4j:slf4j-simple=$SLF4J_VERSION
+org.slf4j:jcl-over-slf4j=$SLF4J_VERSION
+org.slf4j:log4j-over-slf4j=$SLF4J_VERSION
+org.slf4j:jul-to-slf4j=$SLF4J_VERSION
 
 # ------ TESTING ----------------
 io.mockk:mockk=1.9.3

@@ -12,7 +12,6 @@ import io.ktor.http.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
-import io.ktor.util.*
 import kotlinx.serialization.json.*
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -31,7 +30,6 @@ interface GraphQLConfiguration {
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
-@OptIn(KtorExperimentalAPI::class)
 @Suppress("BlockingMethodInNonBlockingContext")
 fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     val json = Json {}
