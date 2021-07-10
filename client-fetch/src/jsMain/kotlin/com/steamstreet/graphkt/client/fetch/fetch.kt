@@ -62,9 +62,20 @@ class GraphQLJsClient(val endpoint: String,
 
         val headerPairs = headers.map { it.key to it.value } + ("Accept" to "application/json")
 
-        val result = window.fetch("${endpoint}?${queryParameters.joinToString("&")}", RequestInit(
+        val result = window.fetch(
+            "${endpoint}?${queryParameters.joinToString("&")}", RequestInit(
                 headers = kotlin.js.json(*(headerPairs.toTypedArray()))
-        )).await()
+            )
+        ).await()
+
+        if (result.status >= 400) {
+            throw GraphQLClientException(
+                GraphQLError(result.statusText, null, null,
+                    buildJsonObject {
+                        put("code", result.status)
+                    })
+            )
+        }
 
         return result.text().await()
     }
@@ -83,14 +94,21 @@ class GraphQLJsClient(val endpoint: String,
         }
         val gql = json.encodeToString(JsonObject.serializer(), envelope)
 
-        val result = window.fetch(endpoint, RequestInit(
+        val result = window.fetch(
+            endpoint, RequestInit(
                 method = "POST",
                 headers = kotlin.js.json(*(headerPairs.toTypedArray())),
                 body = gql
-        )).await()
+            )
+        ).await()
 
-        if (result.status >= 500) {
-            throw GraphQLClientException(GraphQLError(result.statusText, null, null, null))
+        if (result.status >= 400) {
+            throw GraphQLClientException(
+                GraphQLError(result.statusText, null, null,
+                    buildJsonObject {
+                        put("code", result.status)
+                    })
+            )
         }
         return result.text().await()
     }
