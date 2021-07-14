@@ -125,7 +125,11 @@ class ServerMappingGenerator(schema: TypeDefinitionRegistry,
                             this.addPrimitive("content")
                         })
                     } else {
-                        add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
+                        if (inputKotlinType.isNullable) {
+                            add("""if (it.inputParameter("$fieldName") is JsonNull) null else json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
+                        } else {
+                            add("""json.decodeFromJsonElement(${inputKotlinType.simpleName}.serializer(), it.inputParameter("$fieldName"))""")
+                        }
                     }
                 }
             }

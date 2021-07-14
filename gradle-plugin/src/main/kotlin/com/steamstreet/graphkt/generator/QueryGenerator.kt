@@ -100,12 +100,40 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                         addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
                                                     }
                                                 } else if (inputType is EnumTypeDefinition) {
-                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name}.name)}")""")
+                                                    addStatement(
+                                                        """writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${
+                                                            (baseType(
+                                                                inputDef.type
+                                                            ) as? TypeName)?.name
+                                                        }", ${inputDef.name}.name)}")"""
+                                                    )
+                                                } else if (isCustomScalar(inputDef.type)) {
+                                                    addStatement(
+                                                        """writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${
+                                                            (baseType(
+                                                                inputDef.type
+                                                            ) as? TypeName)?.name
+                                                        }", ${(baseType(inputDef.type) as? TypeName)?.name}.serializer(), ${inputDef.name})}")"""
+                                                    )
                                                 } else {
-                                                    addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputDef.name})}")""")
+                                                    addStatement(
+                                                        """writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${
+                                                            (baseType(
+                                                                inputDef.type
+                                                            ) as? TypeName)?.name
+                                                        }", ${inputDef.name})}")"""
+                                                    )
                                                 }
 
                                                 if (inputDef.type !is NonNullType) {
+                                                    nextControlFlow("else")
+                                                    addStatement(
+                                                        """writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${
+                                                            (baseType(
+                                                                inputDef.type
+                                                            ) as? TypeName)?.name
+                                                        }", null)}")"""
+                                                    )
                                                     endControlFlow()
                                                 }
                                             }

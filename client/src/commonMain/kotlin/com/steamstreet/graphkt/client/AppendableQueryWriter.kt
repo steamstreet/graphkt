@@ -3,6 +3,7 @@ package com.steamstreet.graphkt.client
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.random.Random
 
@@ -37,6 +38,7 @@ class AppendableQueryWriter(
         }
 
         val el = when (value) {
+            null -> JsonNull
             is Number -> JsonPrimitive(value as? Number)
             is String -> JsonPrimitive(value as? String)
             is Boolean -> JsonPrimitive(value as? Boolean)
