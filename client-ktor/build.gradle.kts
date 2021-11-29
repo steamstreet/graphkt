@@ -12,7 +12,7 @@ kotlin {
         commonMain {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
-                implementation(project(":client"))
+                api(project(":client"))
 
                 api("io.ktor:ktor-client-core:1.4.0")
                 api("io.ktor:ktor-http:1.4.0")

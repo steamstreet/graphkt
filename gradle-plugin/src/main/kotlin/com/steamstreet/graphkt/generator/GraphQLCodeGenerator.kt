@@ -68,10 +68,15 @@ open class GraphQLCodeGenerator : DefaultTask() {
             }
         }
 
-        DataTypesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        QueryGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        ResponseParserGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        ServerInterfacesGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
-        ServerMappingGenerator(schema, project.graphQL().basePackage, properties, outputDir).execute()
+        val configuration = project.graphQL()
+        DataTypesGenerator(schema, configuration.basePackage, properties, outputDir).execute()
+        if (configuration.generateClient) {
+            QueryGenerator(schema, configuration.basePackage, properties, outputDir).execute()
+            ResponseParserGenerator(schema, configuration.basePackage, properties, outputDir).execute()
+        }
+        if (configuration.generateServer) {
+            ServerInterfacesGenerator(schema, configuration.basePackage, properties, outputDir).execute()
+            ServerMappingGenerator(schema, configuration.basePackage, properties, outputDir).execute()
+        }
     }
 }

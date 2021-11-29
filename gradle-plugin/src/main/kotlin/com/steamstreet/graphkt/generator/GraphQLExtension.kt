@@ -10,6 +10,8 @@ const val EXTENSION_NAME = "GraphQL"
 open class GraphQLExtension {
     var schema: String = ""
     var basePackage: String = ""
+    var generateClient: Boolean = true
+    var generateServer: Boolean = true
 }
 
 internal fun Project.graphQL(): GraphQLExtension = extensions.getByName(EXTENSION_NAME) as? GraphQLExtension

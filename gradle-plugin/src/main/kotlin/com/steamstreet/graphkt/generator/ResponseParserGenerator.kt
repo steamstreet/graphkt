@@ -18,7 +18,7 @@ class ResponseParserGenerator(schema: TypeDefinitionRegistry,
 
     fun execute() {
         responsesFile.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
-                "NestedLambdaShadowedImplicitParameter")
+                "NestedLambdaShadowedImplicitParameter", "PropertyName")
 
         schema.types().values.forEach { typeDef ->
             when (typeDef) {

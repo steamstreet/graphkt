@@ -108,6 +108,13 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                         }", ${inputDef.name}.name)}")"""
                                                     )
                                                 } else if (isCustomScalar(inputDef.type)) {
+                                                    val customSerializer = scalarSerializer(inputDef.type)
+                                                    if (customSerializer == null) {
+                                                        file.addImport("kotlinx.serialization.builtins", "serializer")
+                                                        (baseType(inputDef.type) as? TypeName)?.name?.let {
+                                                            file.addImport(packageName, it)
+                                                        }
+                                                    }
                                                     addStatement(
                                                         """writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${
                                                             (baseType(

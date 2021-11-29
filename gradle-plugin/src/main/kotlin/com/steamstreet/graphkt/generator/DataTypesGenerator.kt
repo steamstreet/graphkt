@@ -21,6 +21,8 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
     val commonFile = FileSpec.builder(packageName, "common")
 
     fun execute() {
+        commonFile.suppress("JSON_FORMAT_REDUNDANT_DEFAULT")
+        commonFile.addImport("kotlinx.serialization.builtins", "serializer")
         generateInputTypes()
         scalarAliases()
         serializerModule()

@@ -35,6 +35,12 @@ open class GraphQLGenerator(
         }
     }
 
+    fun scalarSerializer(type: Type<Type<*>>): ClassName? {
+        return (type as? graphql.language.TypeName)?.name?.let {
+            scalarSerializer(it)
+        }
+    }
+
     fun isScalar(type: Type<Type<*>>): Boolean {
         return when (type) {
             is NonNullType -> {
