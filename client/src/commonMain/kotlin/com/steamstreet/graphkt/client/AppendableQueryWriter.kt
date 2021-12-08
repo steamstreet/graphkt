@@ -114,7 +114,7 @@ class AppendableQueryWriter(
 
             target.append('(')
             target.append(variables.entries.joinToString(",") {
-                "\$${it.key}: ${it.value.type}!"
+                "\$${it.key}: ${it.value.type}"
             })
             target.append(')')
         }

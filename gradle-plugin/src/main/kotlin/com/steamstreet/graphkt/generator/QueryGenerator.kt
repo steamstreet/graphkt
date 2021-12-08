@@ -71,22 +71,25 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                             }
 
                                             field.inputValueDefinitions.forEach { inputDef ->
-                                                val inputType = schema.findType(inputDef.type)
                                                 val inputBaseType = (inputDef.type as? NonNullType)?.type
                                                         ?: inputDef.type
-
-                                                if (inputDef.type !is NonNullType) {
-                                                    beginControlFlow("""if (${inputDef.name} != null)""")
-                                                }
 
                                                 if (field.inputValueDefinitions.size > 1) {
                                                     addStatement("""if (count++ > 0) writer.print(", ")""")
                                                 }
 
+                                                if (inputDef.type !is NonNullType) {
+                                                    beginControlFlow("""if (${inputDef.name} != null)""")
+                                                }
+
+                                                val nonNullIndicator = if (inputDef.type is NonNullType) "!" else ""
+                                                val inputType = schema.findType(inputDef.type)
                                                 if (inputType is InputObjectTypeDefinition) {
                                                     if (inputBaseType is ListType) {
                                                         val elementType = inputBaseType.type
                                                         val listSerializerClass = ClassName("kotlinx.serialization.builtins", "ListSerializer")
+                                                        val listNonNull = if (inputDef.type is NonNullType) "!" else ""
+                                                        val listElementNonNull = if (elementType is NonNullType) "!" else ""
                                                         val elementClass = "${inputType.name}.serializer()".let {
                                                             if (elementType is NonNullType) {
                                                                 it
@@ -95,9 +98,9 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                                 "$it.nullable"
                                                             }
                                                         }
-                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", %T($elementClass), ${inputDef.name})}")""", listSerializerClass)
+                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "[${(baseType(elementType) as? TypeName)?.name}${listElementNonNull}]${listNonNull}", %T($elementClass), ${inputDef.name})}")""", listSerializerClass)
                                                     } else {
-                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
+                                                        addStatement("""writer.print("${inputDef.name}: \${"$"}${"$"}{writer.variable("${inputDef.name}", "${(baseType(inputDef.type) as? TypeName)?.name}${nonNullIndicator}", ${inputType.name}.serializer(), ${inputDef.name})}")""")
                                                     }
                                                 } else if (inputType is EnumTypeDefinition) {
                                                     addStatement(
@@ -105,7 +108,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                             (baseType(
                                                                 inputDef.type
                                                             ) as? TypeName)?.name
-                                                        }", ${inputDef.name}.name)}")"""
+                                                        }${nonNullIndicator}", ${inputDef.name}.name)}")"""
                                                     )
                                                 } else if (isCustomScalar(inputDef.type)) {
                                                     val customSerializer = scalarSerializer(inputDef.type)
@@ -120,7 +123,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                             (baseType(
                                                                 inputDef.type
                                                             ) as? TypeName)?.name
-                                                        }", ${(baseType(inputDef.type) as? TypeName)?.name}.serializer(), ${inputDef.name})}")"""
+                                                        }${nonNullIndicator}", ${(baseType(inputDef.type) as? TypeName)?.name}.serializer(), ${inputDef.name})}")"""
                                                     )
                                                 } else {
                                                     addStatement(
@@ -128,7 +131,7 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
                                                             (baseType(
                                                                 inputDef.type
                                                             ) as? TypeName)?.name
-                                                        }", ${inputDef.name})}")"""
+                                                        }${nonNullIndicator}", ${inputDef.name})}")"""
                                                     )
                                                 }
 

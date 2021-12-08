@@ -47,7 +47,6 @@ interface GraphQLClient {
     ): T {
         val result = execute(name, json, block)
         val resultElement = json.parseToJsonElement(result)
-        val data = resultElement.jsonObject["data"]?.jsonObject
         val errors = resultElement.jsonObject["errors"]?.jsonArray
 
         val errorList = errors?.let {
@@ -56,6 +55,8 @@ interface GraphQLClient {
         val response = DefaultGraphQLResponse("", errorList, errorList?.associateBy {
             it.path?.joinToString(".") ?: ""
         } ?: emptyMap())
-        return init(response, data!!)
+
+        val data = resultElement.jsonObject["data"]
+        return init(response, data as? JsonObject ?: JsonObject(emptyMap()))
     }
 }

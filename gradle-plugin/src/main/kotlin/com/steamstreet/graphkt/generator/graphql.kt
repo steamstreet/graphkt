@@ -16,8 +16,19 @@ fun baseType(type: Type<Type<*>>): Type<Type<*>> {
     return actualType
 }
 
+fun baseTypeFullyResolved(type: Type<Type<*>>): Type<Type<*>> {
+    var actualType = type
+    if (actualType is NonNullType) {
+        actualType = baseTypeFullyResolved((actualType as NonNullType).type)
+    }
+    if (actualType is ListType) {
+        actualType = baseTypeFullyResolved((actualType as ListType).type)
+    }
+    return actualType
+}
+
 fun TypeDefinitionRegistry.findType(type: Type<Type<*>>): TypeDefinition<out TypeDefinition<*>>? {
-    val baseType = baseType(type)
+    val baseType = baseTypeFullyResolved(type)
     return this.types().values.find {
         it.name == (baseType as TypeName).name
     }
@@ -28,7 +39,7 @@ fun TypeDefinitionRegistry.findType(type: Type<Type<*>>): TypeDefinition<out Typ
  */
 fun TypeDefinitionRegistry.getOverriddenFields(typeDefinition: ObjectTypeDefinition): List<FieldDefinition> {
     return typeDefinition.implements.mapNotNull { type ->
-        val interfaceName = ((type as graphql.language.TypeName).name)
+        val interfaceName = ((type as TypeName).name)
         types().values.find { it.name == interfaceName }
     }.mapNotNull {
         it as? InterfaceTypeDefinition
@@ -45,7 +56,7 @@ fun TypeDefinitionRegistry.findScalar(type: Type<Type<*>>): ScalarTypeDefinition
     if (type is NonNullType) {
         return findScalar(type.type)
     }
-    val typeName = (type as? graphql.language.TypeName)
+    val typeName = (type as? TypeName)
     return customScalars().find { it.name == typeName?.name }
 }
 
