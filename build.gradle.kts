@@ -8,10 +8,6 @@ buildscript {
             jcenter()
             mavenCentral()
 
-            maven("https://dl.bintray.com/kotlin/kotlin-eap")
-            maven("https://kotlin.bintray.com/kotlinx")
-            maven("https://kotlin.bintray.com/kotlin-js-wrappers")
-
             maven("s3://graphkt-releases/maven") {
                 authentication {
                     val awsIm by registering(AwsImAuthentication::class)
