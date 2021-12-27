@@ -76,6 +76,7 @@ class DataTypesGenerator(schema: TypeDefinitionRegistry,
                     if (serializers.isNotEmpty()) {
                         addStatement("serializersModule = serializerModule")
                     }
+                    addStatement("ignoreUnknownKeys = true")
                     endControlFlow()
                 }.build())
                 .build())
