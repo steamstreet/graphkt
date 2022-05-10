@@ -4,6 +4,7 @@ import com.steamstreet.graphkt.client.AppendableQueryWriter
 import com.steamstreet.graphkt.client.GraphQLClient
 import com.steamstreet.graphkt.client.QueryWriter
 import io.ktor.client.*
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.content.*
 import io.ktor.http.*
@@ -18,7 +19,9 @@ import kotlinx.serialization.json.put
 class GraphQLKtorClient(val endpoint: String,
                         val http: HttpClient = HttpClient(),
                         val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }) : GraphQLClient {
-    private val json = Json {}
+    private val json = Json {
+        ignoreUnknownKeys = true
+    }
 
     /**
      * Execute a query. The query can optionally be named.
@@ -50,7 +53,12 @@ class GraphQLKtorClient(val endpoint: String,
 
     suspend fun get(query: String, variables: JsonObject?): String {
         val headers = headerInitializer()
-        val response = http.request<String> {
+
+        http.request {
+
+        }
+
+        val response = http.request {
             headers.forEach { (key, value) ->
                 this.header(key, value)
             }
@@ -65,12 +73,12 @@ class GraphQLKtorClient(val endpoint: String,
             method = HttpMethod.Get
             accept(ContentType.Application.Json)
         }
-        return response
+        return response.body()
     }
 
     suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
-        val response = http.request<String> {
+        val response = http.request {
             url(endpoint)
             method = HttpMethod.Post
 
@@ -86,9 +94,10 @@ class GraphQLKtorClient(val endpoint: String,
                 }
             }
             val gql = json.encodeToString(JsonObject.serializer(), envelope)
-            body = TextContent(gql, ContentType.parse("application/graphql"))
+
+            setBody(TextContent(gql, ContentType.parse("application/graphql")))
             accept(ContentType.Application.Json)
         }
-        return response
+        return response.body()
     }
 }

@@ -6,12 +6,12 @@ import com.steamstreet.graphkt.server.ServerRequestSelection
 import com.steamstreet.graphkt.server.buildResponse
 import com.steamstreet.graphkt.server.parseGraphQLOperation
 import graphql.language.OperationDefinition
-import io.ktor.application.*
-import io.ktor.features.*
 import io.ktor.http.*
-import io.ktor.request.*
-import io.ktor.response.*
-import io.ktor.routing.*
+import io.ktor.server.application.*
+import io.ktor.server.plugins.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import kotlinx.serialization.json.*
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -30,9 +30,11 @@ interface GraphQLConfiguration {
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
-@Suppress("BlockingMethodInNonBlockingContext")
+@Suppress("BlockingMethodInNonBlockingContext", "unused")
 fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
-    val json = Json {}
+    val json = Json {
+        ignoreUnknownKeys = true
+    }
 
     var queryGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
     var mutationGetter: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)? = null
