@@ -54,10 +54,6 @@ class GraphQLKtorClient(val endpoint: String,
     suspend fun get(query: String, variables: JsonObject?): String {
         val headers = headerInitializer()
 
-        http.request {
-
-        }
-
         val response = http.request {
             headers.forEach { (key, value) ->
                 this.header(key, value)
