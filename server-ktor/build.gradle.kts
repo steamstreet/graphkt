@@ -1,31 +1,23 @@
 plugins {
     kotlin("jvm")
-    id("kotlinx-serialization")
-    id("maven-publish")
+    kotlin("plugin.serialization")
+    `maven-publish`
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
+    implementation(libs.kotlin.serialization.core)
 
     api(project(":common-runtime"))
     api(project(":server"))
 
-    implementation("io.ktor:ktor-server-host-common")
-    implementation("io.ktor:ktor-server-core")
+//    implementation("io.ktor:ktor-server-host-common")
+    implementation(libs.ktor.server.core)
 
-    implementation("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
-
-    testImplementation("com.jayway.jsonpath:json-path")
-    testImplementation("org.junit.jupiter:junit-jupiter-engine")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-annotations-common")
+    implementation(libs.graphql)
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+kotlin {
+    jvmToolchain(11)
 }
 
 val sourcesJar by tasks.registering(Jar::class) {

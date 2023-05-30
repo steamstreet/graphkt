@@ -1,94 +1,13 @@
-buildscript {
-    val libraryRecommenderFile: File by extra {
-        File(project.rootProject.projectDir, "libraries.txt")
-    }
-
-    val repos: RepositoryHandler.() -> Unit by extra {
-        {
-            jcenter()
-            mavenCentral()
-
-            maven("s3://graphkt-releases/maven") {
-                authentication {
-                    val awsIm by registering(AwsImAuthentication::class)
-                }
-            }
-        }
-    }
-
-
-    // bootstrap our version recommender by just loading properties directly
-    val libraryVersions: Map<String, String> by extra {
-        java.util.Properties().apply {
-            load(object : java.io.FileReader(libraryRecommenderFile) {
-                override fun read(cbuf: CharArray, off: Int, len: Int): Int {
-                    val pos = super.read(cbuf, off, len)
-                    for (i in cbuf.indices)
-                        if (cbuf[i] == ':')
-                            cbuf[i] = '/'
-                    return pos
-                }
-            })
-        }.let { properties ->
-            properties.toMap().map {
-                val resolvedKey: String = (it.key as String).replace("/", ":")
-                val resolvedValue: String = (it.value as String).let { v ->
-                    if (v.startsWith("$")) {
-                        properties[v.drop(1)] as String
-                    } else v
-                }
-
-                resolvedKey to resolvedValue
-            }.toMap()
-        }
-    }
-
-    dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:${libraryVersions["KOTLIN_VERSION"]}")
-        classpath("org.jetbrains.kotlin:kotlin-serialization:${libraryVersions["KOTLIN_VERSION"]}")
-    }
-
-    repositories(repos)
-}
-
-allprojects {
-    val repos: RepositoryHandler.() -> Unit by rootProject.extra
-    repositories(repos)
-
-    // Initialize library resolution so that all child projects pull from the master
-    // version list.
-    val libraryVersions: Map<String, String> by rootProject.extra
-    this.project.configurations.all {
-        resolutionStrategy {
-            eachDependency {
-                val version = libraryVersions["${this.requested.group}:${this.requested.name}"]
-                if (version != null) {
-                    this.useVersion(version)
-                }
-            }
-        }
-    }
-}
-
-fun Project.propertyOrNull(key: String): String? {
-    return if (hasProperty(key))
-        project.property(key) as? String
-    else
-        null
+plugins {
+    kotlin("multiplatform") version "1.8.21" apply false
+    kotlin("plugin.serialization") version "1.8.21" apply false
 }
 
 subprojects {
     apply(plugin = "maven-publish")
 
-    val project = this
-
     group = "com.steamstreet.graphkt"
-    version = "0.1.1-${this.findProperty("BUILD_NUMBER")?.let { "build$it" } ?: "SNAPSHOT"}"
-
-    this.tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = "1.8"
-        kotlinOptions.freeCompilerArgs = listOf("-Xuse-experimental=kotlin.Experimental")
-    }
+    version = "0.5.1-${this.findProperty("BUILD_NUMBER")?.let { "build$it" } ?: "SNAPSHOT"}"
 
     configure<PublishingExtension> {
         repositories {

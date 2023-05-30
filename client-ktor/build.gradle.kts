@@ -1,21 +1,23 @@
 plugins {
     kotlin("multiplatform")
-    id("maven-publish")
-    id("kotlinx-serialization")
+    kotlin("plugin.serialization")
+    `maven-publish`
 }
 
 kotlin {
     jvm()
-    js(BOTH) { browser() }
+    js(IR) { browser() }
+
+    ios {
+
+    }
 
     sourceSets {
         commonMain {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
                 api(project(":client"))
-
-                api("io.ktor:ktor-client-core:1.4.0")
-                api("io.ktor:ktor-http:1.4.0")
+                api(libs.kotlin.serialization.core)
+                api(libs.ktor.client.core)
             }
         }
     }

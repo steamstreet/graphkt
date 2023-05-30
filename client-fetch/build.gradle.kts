@@ -1,39 +1,25 @@
 plugins {
     kotlin("multiplatform")
-    id("maven-publish")
-    id("kotlinx-serialization")
+    kotlin("plugin.serialization")
+    `maven-publish`
 }
 
 kotlin {
-    js(BOTH) {
+    js(IR) {
         browser {
-//            val main by compilations.getting {
-//                kotlinOptions {
-//                    // Setup the Kotlin compiler options for the 'main' compilation:
-//                    freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
-//
-//                }
-//            }
         }
     }
     sourceSets {
-        all {
-            languageSettings.apply {
-                optIn("kotlin.RequiresOptIn")
-            }
-        }
-
         commonMain {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-core")
-                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
+                implementation(libs.kotlin.serialization.json)
                 implementation(project(":client"))
             }
         }
 
         val jsMain by getting {
             dependencies {
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+                implementation(libs.kotlin.coroutines)
             }
         }
     }

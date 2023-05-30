@@ -12,7 +12,7 @@ class SomeSerializable(val name: String, val id: Int)
 class AppendableQueryWriterTest {
     @Test
     fun testSerialization() {
-        val writer = AppendableQueryWriter()
+        val writer = AppendableQueryWriter(Json)
 
         writer.variable("MyVariable", "MyVariableType", SomeSerializable.serializer(), SomeSerializable("Jon", 12))
 

@@ -176,8 +176,11 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
         schema.schemaDefinition().get().operationTypeDefinitions.forEach { operationType ->
             val jsonFunction = ClassName(packageName, "json")
             file.addFunction(FunSpec.builder(operationType.name)
-                    .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
-                    .returns(ClassName(clientPackage, operationType.name.capitalize()))
+                .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
+                .returns(
+                    ClassName(clientPackage,
+                        operationType.name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() })
+                )
                     .addModifiers(KModifier.SUSPEND)
                     .addParameter(ParameterSpec.builder("name", ClassName("kotlin", "String").copy(true)).defaultValue("null").build())
                     .addParameter(ParameterSpec.builder("block",

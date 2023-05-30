@@ -1,24 +1,24 @@
 plugins {
     kotlin("multiplatform")
-    id("kotlinx-serialization")
-    id("maven-publish")
+    kotlin("plugin.serialization")
+    `maven-publish`
 }
 
 kotlin {
     jvm()
-    js(BOTH) {
+    js(IR) {
         browser {
             testTask {
                 enabled = false
             }
         }
     }
+    ios {}
 
     sourceSets {
         commonMain {
             dependencies {
-                api("org.jetbrains.kotlinx:kotlinx-serialization-core:1.0.0")
-                api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.0")
+                api(libs.kotlin.serialization.json)
 
                 api(project(":common-runtime"))
             }
@@ -26,8 +26,7 @@ kotlin {
 
         commonTest {
             dependencies {
-                implementation("org.jetbrains.kotlin:kotlin-test:1.4.10")
-                implementation("org.jetbrains.kotlin:kotlin-test-annotations-common:1.4.10")
+                implementation(kotlin("test"))
             }
         }
     }
