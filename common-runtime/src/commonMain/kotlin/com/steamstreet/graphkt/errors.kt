@@ -4,18 +4,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
 @Serializable
-class Location(
-        val line: Int,
-        val column: Int
+public class Location(
+    public val line: Int,
+    public val column: Int
 )
 
 /**
  * Encapsulates an error response
  */
 @Serializable
-class GraphQLError(
-    val message: String,
-    val locations: List<Location>? = null,
-    val path: List<String>? = null,
-    val extensions: JsonObject? = null
+public class GraphQLError(
+    public val message: String,
+    public val locations: List<Location>? = null,
+    public val path: List<String>? = null,
+    public val extensions: JsonObject? = null
 )

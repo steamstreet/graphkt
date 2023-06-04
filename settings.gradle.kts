@@ -43,11 +43,11 @@ dependencyResolutionManagement {
             )
 
             library("ktor-client-core", "io.ktor", "ktor-client-core").versionRef(ktorVersion)
+            library("ktor-server-core", "io.ktor", "ktor-server-core").versionRef(ktorVersion)
 
-            library("graphql", "com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
+            library("graphql", "com.graphql-java:graphql-java:20.3")
             library("aws-lambda-events", "com.amazonaws:aws-lambda-java-events:3.8.0")
 
-            library("ktor-server-core", "io.ktor", "ktor-server-core").versionRef(ktorVersion)
             library("kotlin-poet", "com.squareup", "kotlinpoet").version("1.6.0")
         }
     }
@@ -63,3 +63,4 @@ include(":client-fetch")
 include(":server")
 include(":server-ktor")
 include(":server-lambda")
+include(":code-generator")

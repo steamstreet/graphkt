@@ -10,19 +10,21 @@ import kotlin.random.Random
 /**
  * Query writer that uses the Appendable interface.
  */
-class AppendableQueryWriter(
-        private val json: Json,
-        private var indent: Int = 0,
+public class AppendableQueryWriter(
+    private val json: Json,
+    private var indent: Int = 0,
 ) : QueryWriter {
     private val appender = StringBuilder()
 
     private var name: String? = null
     override var type: String = "query"
 
-    val variables = HashMap<String, TypeAndValue>()
+    public val variables: HashMap<String, TypeAndValue> = HashMap()
 
-    data class TypeAndValue(val type: String,
-                            val value: JsonElement)
+    public data class TypeAndValue(
+        val type: String,
+        val value: JsonElement
+    )
 
     override fun named(name: String): QueryWriter {
         this.name = name

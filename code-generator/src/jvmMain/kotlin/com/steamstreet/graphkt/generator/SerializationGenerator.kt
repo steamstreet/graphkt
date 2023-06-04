@@ -12,10 +12,12 @@ import java.util.*
 /**
  * Generates classes used for serialization of GraphQL results.
  */
-class SerializationGenerator(schema: TypeDefinitionRegistry,
-                             packageName: String,
-                             properties: Properties,
-                             outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class SerializationGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
     val file = FileSpec.builder(packageName, "graphql-serializable")
 
     fun execute() {

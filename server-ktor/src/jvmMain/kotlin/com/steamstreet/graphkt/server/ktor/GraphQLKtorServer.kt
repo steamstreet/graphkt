@@ -16,22 +16,43 @@ import kotlinx.serialization.json.*
 import java.io.PrintWriter
 import java.io.StringWriter
 
-interface GraphQLConfiguration {
-    fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
-    fun mutation(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
+public interface GraphQLConfiguration {
+    public fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
+    public fun mutation(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
 
     /**
      * Install an error handler. This won't impact the response, but will
      * allow for extra handling (logging, etc.)
      */
-    fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
+    public fun errorHandler(block: suspend (List<GraphQLError>) -> Unit)
+}
+
+/**
+ * Simpler configuration of routes.
+ */
+public fun Route.graphQL(
+    query: (suspend (RequestSelection) -> JsonElement?)? = null,
+    mutation: (suspend (RequestSelection) -> JsonElement?)? = null,
+) {
+    this.graphQL(block = {
+        if (query != null) {
+            query { _, selection ->
+                query(selection)
+            }
+        }
+        if (mutation != null) {
+            mutation { _, selection ->
+                mutation(selection)
+            }
+        }
+    })
 }
 
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
 @Suppress("BlockingMethodInNonBlockingContext", "unused")
-fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
+public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     val json = Json {
         ignoreUnknownKeys = true
     }

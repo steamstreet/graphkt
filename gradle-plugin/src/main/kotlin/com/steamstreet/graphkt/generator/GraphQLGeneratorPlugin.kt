@@ -10,8 +10,10 @@ class GraphQLGeneratorPlugin : Plugin<Project> {
     override fun apply(target: Project) {
         target.extensions.create<GraphQLExtension>(EXTENSION_NAME,
                 GraphQLExtension::class.java)
-        val task = target.tasks.register("generateGraphQLCode",
-                GraphQLCodeGenerator::class.java)
+        val task = target.tasks.register(
+            "generateGraphQLCode",
+            GraphQLCodeGeneratorTask::class.java
+        )
 
         target.afterEvaluate { _ ->
             target.tasks.filter {

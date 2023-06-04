@@ -4,16 +4,19 @@ plugins {
 
 kotlin {
     jvm()
-    js(IR) { browser() }
-
-    ios {}
-
-    explicitApi()
 
     sourceSets {
         commonMain {
             dependencies {
                 implementation(libs.kotlin.serialization.json)
+            }
+        }
+
+        @Suppress("UNUSED_VARIABLE")
+        val jvmMain by getting {
+            dependencies {
+                api(libs.graphql)
+                api(libs.kotlin.poet)
             }
         }
     }

@@ -13,12 +13,14 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.w3c.fetch.RequestInit
 
-external fun decodeURIComponent(encodedURI: String): String
-external fun encodeURIComponent(encodedURI: String): String
+public external fun decodeURIComponent(encodedURI: String): String
+public external fun encodeURIComponent(encodedURI: String): String
 
-class GraphQLJsClient(val endpoint: String,
-                      val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }) : GraphQLClient {
-    private val json = Json {}
+public class GraphQLJsClient(
+    private val endpoint: String,
+    private val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }
+) : GraphQLClient {
+    private val json = Json
 
     /**
      * Execute a query. The query can optionally be named.
@@ -48,11 +50,10 @@ class GraphQLJsClient(val endpoint: String,
         }
     }
 
-    suspend fun get(query: String, variables: JsonObject?): String {
+    private suspend fun get(query: String, variables: JsonObject?): String {
         val headers = headerInitializer()
 
-        @OptIn(ExperimentalStdlibApi::class)
-        val queryParameters = buildList<String> {
+        val queryParameters = buildList {
             add("query=${encodeURIComponent(query)}")
 
             if (variables != null) {
@@ -80,10 +81,11 @@ class GraphQLJsClient(val endpoint: String,
         return result.text().await()
     }
 
-    suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
+    private suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
 
-        val headerPairs = headers.map { it.key to it.value } + ("Accept" to "application/json") + ("Content-Type" to "application/graphql; charset=utf8")
+        val headerPairs =
+            headers.map { it.key to it.value } + ("Accept" to "application/json") + ("Content-Type" to "application/graphql; charset=utf8")
 
         val envelope = buildJsonObject {
             this.put("query", query)

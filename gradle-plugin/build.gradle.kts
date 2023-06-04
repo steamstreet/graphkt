@@ -3,6 +3,7 @@
 plugins {
     kotlin("jvm")
     id("java-gradle-plugin")
+    `maven-publish`
 }
 
 
@@ -13,6 +14,7 @@ kotlin {
 dependencies {
     api(libs.graphql)
     api(libs.kotlin.poet)
+    api(project(":code-generator"))
 }
 
 tasks.test {

@@ -1,7 +1,5 @@
 plugins {
-    kotlin("multiplatform")
-    kotlin("plugin.serialization")
-    `maven-publish`
+    id("graphkt.multiplatform-conventions")
 }
 
 kotlin {
@@ -9,6 +7,9 @@ kotlin {
         browser {
         }
     }
+
+    explicitApi()
+
     sourceSets {
         commonMain {
             dependencies {

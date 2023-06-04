@@ -1,10 +1,11 @@
+@file:Suppress("UNUSED_VARIABLE")
 
 buildscript {
     val graphKtVersion: String by project
 
     repositories {
+        mavenCentral()
         mavenLocal()
-        jcenter()
     }
 
     dependencies {
@@ -15,20 +16,20 @@ buildscript {
 val graphKtVersion: String by project
 
 plugins {
-    kotlin("multiplatform") version "1.4.10"
-    kotlin("plugin.serialization") version "1.4.10"
+    kotlin("multiplatform") version "1.8.21"
+    kotlin("plugin.serialization") version "1.8.21"
 }
 
 apply(plugin = "com.steamstreet.graphkt")
 
 repositories {
+    mavenCentral()
     mavenLocal()
-    jcenter()
 }
 
 kotlin {
     jvm()
-    js { browser() }
+    js(IR) { browser() }
 
     sourceSets {
         val commonMain by getting {
@@ -43,52 +44,36 @@ kotlin {
 
         val commonTest by getting {
             dependencies {
-                implementation(kotlin("test-common"))
-                implementation(kotlin("test-annotations-common"))
-                implementation("org.amshove.kluent:kluent-common:1.61")
+                implementation(kotlin("test"))
+                implementation("com.steamstreet.graphkt:client-ktor:$graphKtVersion")
+                implementation("io.ktor:ktor-client-mock:2.3.0")
+                implementation("org.amshove.kluent:kluent:1.73")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.6.4")
             }
         }
 
         val jvmMain by getting {
-            kotlin.srcDir(File(project.buildDir, "graphql/server/generated"))
-
             dependencies {
-                implementation("com.steamstreet.graphkt:client-jvm:$graphKtVersion")
-                implementation("com.steamstreet.graphkt:server:$graphKtVersion")
                 implementation("com.steamstreet.graphkt:server-ktor:$graphKtVersion")
-
-                api("com.graphql-java:graphql-java:2019-11-07T04-06-09-70d9412")
+                api("com.graphql-java:graphql-java:20.3")
             }
         }
 
         val jvmTest by getting {
             dependencies {
-                implementation("org.amshove.kluent:kluent:1.61")
-                implementation(kotlin("test-junit5"))
+                implementation("io.ktor:ktor-server-test-host:2.3.0")
                 implementation("org.junit.jupiter:junit-jupiter-engine:5.5.2")
-            }
-        }
-
-        val jsMain by getting {
-            dependencies {
-                implementation("com.steamstreet.graphkt:client-js:$graphKtVersion")
-            }
-        }
-
-        val jsTest by getting {
-            dependencies {
-                implementation("org.amshove.kluent:kluent-js:1.61")
+                implementation("io.mockk:mockk:1.13.5")
             }
         }
     }
 }
 
-tasks.withType<Test> {
-    useJUnitPlatform()
+tasks.all {
+    if (this.name == "compileCommonMainKotlinMetadata") {
+        this.dependsOn("generateGraphQLCode")
+    }
 }
-
-tasks["jsBrowserWebpack"].enabled = false
-tasks["jsBrowserProductionWebpack"].enabled = false
 
 configure<com.steamstreet.graphkt.generator.GraphQLExtension> {
     schema = File(projectDir, "schema.graphql").canonicalPath

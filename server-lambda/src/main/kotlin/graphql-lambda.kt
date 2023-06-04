@@ -17,27 +17,27 @@ private val json = Json { }
 
 @Suppress("unused")
 @Serializable
-class ProxyResponse(
-    var statusCode: Int? = null,
-    var headers: Map<String, String>? = null,
-    var multiValueHeaders: Map<String, List<String>>? = null,
-    var body: String? = null,
-    var isBase64Encoded: Boolean = false
+public class ProxyResponse(
+    public var statusCode: Int? = null,
+    public var headers: Map<String, String>? = null,
+    public var multiValueHeaders: Map<String, List<String>>? = null,
+    public var body: String? = null,
+    public var isBase64Encoded: Boolean = false
 )
 
 /**
  * Handles GraphQL requests that come through an HTTP lambda proxy.
  */
-class GraphQLLambda {
+public class GraphQLLambda {
     private lateinit var errorBlock: suspend (List<GraphQLError>) -> Unit
     private lateinit var mutationBlock: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?
     private lateinit var queryBlock: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?
 
-    fun query(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
+    public fun query(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
         this.queryBlock = block
     }
 
-    fun mutation(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
+    public fun mutation(block: suspend (APIGatewayV2HTTPEvent, RequestSelection) -> JsonElement?) {
         this.mutationBlock = block
     }
 
@@ -45,11 +45,11 @@ class GraphQLLambda {
      * Install an error handler. This won't impact the response, but will
      * allow for extra handling (logging, etc.)
      */
-    fun errorHandler(block: suspend (List<GraphQLError>) -> Unit) {
+    public fun errorHandler(block: suspend (List<GraphQLError>) -> Unit) {
         this.errorBlock = block
     }
 
-    fun execute(event: APIGatewayV2HTTPEvent, out: OutputStream) = runBlocking {
+    public fun execute(event: APIGatewayV2HTTPEvent, out: OutputStream): Unit = runBlocking {
         val response = try {
             when (event.requestContext.http.method) {
                 "GET" -> {
@@ -131,5 +131,5 @@ class GraphQLLambda {
     }
 }
 
-fun GraphQLLambda(block: GraphQLLambda.()->Unit): GraphQLLambda =
+public fun GraphQLLambda(block: GraphQLLambda.() -> Unit): GraphQLLambda =
     GraphQLLambda().apply(block)

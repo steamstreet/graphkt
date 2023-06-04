@@ -1,8 +1,7 @@
 package com.steamstreet.graphkt
 
-interface Type
-
-typealias ID = String
+public interface Type
+public typealias ID = String
 
 @DslMarker
-annotation class GraphKtQuery
+public annotation class GraphKtQuery

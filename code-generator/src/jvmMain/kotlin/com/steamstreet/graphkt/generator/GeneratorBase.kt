@@ -15,11 +15,11 @@ import java.util.*
 /**
  * Base class for the various generators in the plugin.
  */
-open class GraphQLGenerator(
-        val schema: TypeDefinitionRegistry,
-        val packageName: String,
-        val properties: Properties,
-        val outputDir: File
+open class GeneratorBase(
+    val schema: TypeDefinitionRegistry,
+    val packageName: String,
+    val properties: Properties,
+    val outputDir: File
 ) {
     val jsonParserType = ClassName(packageName, "json")
 

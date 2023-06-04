@@ -7,25 +7,25 @@ import kotlinx.serialization.json.*
 import java.io.PrintWriter
 import java.io.StringWriter
 
-val gqlContext = ThreadLocal<RequestSelection>()
-val json = Json {}
+public val gqlContext: ThreadLocal<RequestSelection> = ThreadLocal<RequestSelection>()
+public val json: Json = Json
 
-actual fun gqlRequestContext(): RequestSelection? {
+public actual fun gqlRequestContext(): RequestSelection? {
     return gqlContext.get()
 }
 
-fun parseGraphQLOperation(query: String): OperationDefinition {
+public fun parseGraphQLOperation(query: String): OperationDefinition {
     val parser = Parser()
     val result = parser.parseDocument(query)
     return result.definitions.firstOrNull() as? OperationDefinition
         ?: throw IllegalArgumentException("Operation was not found")
 }
 
-class ServerRequestSelection(
-    val parent: ServerRequestSelection?,
-    val variables: Map<String, JsonElement>,
-    val node: Node<*>,
-    val errors: MutableList<GraphQLError>
+public class ServerRequestSelection(
+    public val parent: ServerRequestSelection?,
+    public val variables: Map<String, JsonElement>,
+    public val node: Node<*>,
+    public val errors: MutableList<GraphQLError>
 ) : RequestSelection {
     override val name: String
         get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
@@ -84,7 +84,7 @@ class ServerRequestSelection(
         }
 }
 
-fun buildResponse(data: JsonElement, errors: List<GraphQLError>): JsonObject {
+public fun buildResponse(data: JsonElement, errors: List<GraphQLError>): JsonObject {
     return buildJsonObject {
         put("data", data)
         if (errors.isNotEmpty()) {

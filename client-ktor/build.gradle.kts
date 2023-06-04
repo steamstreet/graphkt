@@ -1,7 +1,5 @@
 plugins {
-    kotlin("multiplatform")
-    kotlin("plugin.serialization")
-    `maven-publish`
+    id("graphkt.multiplatform-conventions")
 }
 
 kotlin {
@@ -9,8 +7,9 @@ kotlin {
     js(IR) { browser() }
 
     ios {
-
     }
+
+    explicitApi()
 
     sourceSets {
         commonMain {

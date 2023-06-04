@@ -1,7 +1,5 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    `maven-publish`
+    id("graphkt.jvm-conventions")
 }
 
 dependencies {
@@ -15,8 +13,11 @@ dependencies {
     implementation(libs.aws.lambda.events)
 }
 
+
 kotlin {
     jvmToolchain(11)
+
+    explicitApi()
 }
 
 val sourcesJar by tasks.registering(Jar::class) {

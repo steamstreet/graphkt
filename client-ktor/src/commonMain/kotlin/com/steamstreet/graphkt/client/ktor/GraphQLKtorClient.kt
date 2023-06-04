@@ -16,9 +16,11 @@ import kotlinx.serialization.json.put
 /**
  * GraphQL query client that uses Ktor to execute
  */
-class GraphQLKtorClient(val endpoint: String,
-                        val http: HttpClient = HttpClient(),
-                        val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }) : GraphQLClient {
+public class GraphQLKtorClient(
+    private val endpoint: String,
+    public val http: HttpClient = HttpClient(),
+    public val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }
+) : GraphQLClient {
     private val json = Json {
         ignoreUnknownKeys = true
     }
@@ -51,7 +53,7 @@ class GraphQLKtorClient(val endpoint: String,
         }
     }
 
-    suspend fun get(query: String, variables: JsonObject?): String {
+    private suspend fun get(query: String, variables: JsonObject?): String {
         val headers = headerInitializer()
 
         val response = http.request {
@@ -72,7 +74,7 @@ class GraphQLKtorClient(val endpoint: String,
         return response.body()
     }
 
-    suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
+    private suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
         val response = http.request {
             url(endpoint)

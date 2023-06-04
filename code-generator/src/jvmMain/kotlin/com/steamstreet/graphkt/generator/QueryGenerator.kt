@@ -10,10 +10,12 @@ import java.util.*
 /**
  * Generate the query language
  */
-class QueryGenerator(schema: TypeDefinitionRegistry,
-                     packageName: String,
-                     properties: Properties,
-                     outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class QueryGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
     private val file = FileSpec.builder("$packageName.client", "query")
     private val writerClass = ClassName("com.steamstreet.graphkt.client", "QueryWriter")
     private val label = "Query"
@@ -23,7 +25,8 @@ class QueryGenerator(schema: TypeDefinitionRegistry,
 
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
-                file.addType(TypeSpec.classBuilder("_${type.name}$label")
+                file.addType(
+                    TypeSpec.classBuilder("_${type.name}$label")
                     .addAnnotation(ClassName("com.steamstreet.graphkt", "GraphKtQuery"))
                         .primaryConstructor(FunSpec.constructorBuilder()
                                 .addParameter("writer", writerClass)

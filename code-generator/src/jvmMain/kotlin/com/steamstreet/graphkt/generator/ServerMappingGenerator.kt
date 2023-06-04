@@ -11,10 +11,12 @@ import java.util.*
  * Generates the file that receives the requests and forwards along to the
  * implementation classes.
  */
-class ServerMappingGenerator(schema: TypeDefinitionRegistry,
-                             packageName: String,
-                             properties: Properties,
-                             outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class ServerMappingGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
     val file = FileSpec.builder(serverPackage, "service-mapping")
 
     fun CodeBlock.Builder.buildFieldFetcher(fieldName: String, inputs: List<InputValueDefinition>?) {

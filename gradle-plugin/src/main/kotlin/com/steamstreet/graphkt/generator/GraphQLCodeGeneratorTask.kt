@@ -11,7 +11,7 @@ import java.util.*
 /**
  * The task to generate code.
  */
-open class GraphQLCodeGenerator : DefaultTask() {
+open class GraphQLCodeGeneratorTask : DefaultTask() {
     @InputFile
     fun getSchema(): File {
         return File(project.graphQL().schema)

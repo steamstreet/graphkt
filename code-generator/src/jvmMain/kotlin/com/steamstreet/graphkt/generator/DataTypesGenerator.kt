@@ -8,15 +8,19 @@ import graphql.schema.idl.TypeDefinitionRegistry
 import java.io.File
 import java.util.*
 
-val builtIn = ScalarInfo.STANDARD_SCALAR_DEFINITIONS.keys
+val builtIn = ScalarInfo.GRAPHQL_SPECIFICATION_SCALARS.map {
+    it.name
+}
 
 /**
  * Generate the types and enums used by queries and server interfaces
  */
-class DataTypesGenerator(schema: TypeDefinitionRegistry,
-                         packageName: String,
-                         properties: Properties,
-                         outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class DataTypesGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
 
     val commonFile = FileSpec.builder(packageName, "common")
 

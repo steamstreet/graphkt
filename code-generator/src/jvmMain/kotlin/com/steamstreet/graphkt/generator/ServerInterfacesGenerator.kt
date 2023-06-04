@@ -9,10 +9,12 @@ import java.io.File
 import java.util.*
 
 
-class ServerInterfacesGenerator(schema: TypeDefinitionRegistry,
-                                packageName: String,
-                                properties: Properties,
-                                outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class ServerInterfacesGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
 
     private val servicesFile = FileSpec.builder("$packageName.server", "services")
 

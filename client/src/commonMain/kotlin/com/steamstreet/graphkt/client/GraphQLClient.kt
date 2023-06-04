@@ -7,8 +7,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 
-class DefaultGraphQLResponse(
-    val path: String,
+public class DefaultGraphQLResponse(
+    public val path: String,
     override val errors: List<GraphQLError>?,
     private val errorsByPath: Map<String, GraphQLError>
 ) : GraphQLResponse {
@@ -29,17 +29,17 @@ class DefaultGraphQLResponse(
 /**
  * Interface for a GraphQL client.
  */
-interface GraphQLClient {
+public interface GraphQLClient {
     /**
      * Execute a query. Variables will be automatically included in the query based on values passed
      * when building the query. If no name is provided, a random name will be generated.
      */
-    suspend fun execute(name: String? = null, json: Json, block: QueryWriter.() -> Unit): String
+    public suspend fun execute(name: String? = null, json: Json, block: QueryWriter.() -> Unit): String
 
     /**
      * Execute a query and parse the response envelope.
      */
-    suspend fun <T> executeAndParse(
+    public suspend fun <T> executeAndParse(
         name: String? = null,
         json: Json,
         init: (GraphQLResponse, JsonObject) -> T,

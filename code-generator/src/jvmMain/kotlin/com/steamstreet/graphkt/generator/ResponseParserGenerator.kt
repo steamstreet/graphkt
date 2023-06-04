@@ -8,17 +8,21 @@ import java.io.File
 import java.util.*
 
 
-class ResponseParserGenerator(schema: TypeDefinitionRegistry,
-                              packageName: String,
-                              properties: Properties,
-                              outputDir: File) : GraphQLGenerator(schema, packageName, properties, outputDir) {
+class ResponseParserGenerator(
+    schema: TypeDefinitionRegistry,
+    packageName: String,
+    properties: Properties,
+    outputDir: File
+) : GeneratorBase(schema, packageName, properties, outputDir) {
     val responseType = ClassName("com.steamstreet.graphkt.client", "GraphQLResponse")
 
     private val responsesFile = FileSpec.builder("$packageName.client", "responses")
 
     fun execute() {
-        responsesFile.suppress("ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
-                "NestedLambdaShadowedImplicitParameter", "PropertyName")
+        responsesFile.suppress(
+            "ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
+            "NestedLambdaShadowedImplicitParameter", "PropertyName"
+        )
 
         schema.types().values.forEach { typeDef ->
             when (typeDef) {

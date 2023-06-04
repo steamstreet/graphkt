@@ -1,12 +1,13 @@
 plugins {
-    kotlin("multiplatform")
-    kotlin("plugin.serialization")
-    `maven-publish`
+    id("graphkt.multiplatform-conventions")
 }
 
+@Suppress("UNUSED_VARIABLE")
 kotlin {
     jvm()
     js(IR) { browser() }
+
+    explicitApi()
 
     sourceSets {
         val commonMain by getting {

@@ -1,48 +1,31 @@
 plugins {
-    kotlin("jvm")
-    kotlin("plugin.serialization")
-    `maven-publish`
+    id("graphkt.multiplatform-conventions")
 }
 
-dependencies {
-    implementation(libs.kotlin.serialization.core)
+kotlin {
+    jvm()
 
-    api(project(":common-runtime"))
-    api(project(":server"))
+    explicitApi()
 
-//    implementation("io.ktor:ktor-server-host-common")
-    implementation(libs.ktor.server.core)
+    sourceSets {
+        val commonMain by getting {
+            dependencies {
+                implementation(libs.kotlin.serialization.core)
 
-    implementation(libs.graphql)
+                api(project(":common-runtime"))
+                api(project(":server"))
+                implementation(libs.ktor.server.core)
+            }
+        }
+
+        val jvmMain by getting {
+            dependencies {
+                implementation(libs.graphql)
+            }
+        }
+    }
 }
 
 kotlin {
     jvmToolchain(11)
-}
-
-val sourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(sourceSets.main.get().allSource)
-}
-
-publishing {
-    publications {
-        register("mavenJava", MavenPublication::class) {
-            from(components["java"])
-            artifact(sourcesJar.get())
-        }
-    }
-
-    afterEvaluate {
-        publications.forEach {
-            (it as? MavenPublication)?.let {
-                it.versionMapping {
-                    allVariants {
-                        fromResolutionResult()
-                    }
-                }
-
-            }
-        }
-    }
 }
