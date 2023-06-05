@@ -31,3 +31,14 @@ kotlin {
         }
     }
 }
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                description.set("Common code for all GraphKt client implementations")
+            }
+        }
+    }
+}

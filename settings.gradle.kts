@@ -1,8 +1,16 @@
 @file:Suppress("UnstableApiUsage")
+rootProject.name = "graphkt"
 
 dependencyResolutionManagement {
     repositories {
         mavenCentral()
+    }
+
+    pluginManagement {
+        repositories {
+            gradlePluginPortal()
+            mavenCentral()
+        }
     }
 
     versionCatalogs {

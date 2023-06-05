@@ -22,4 +22,5 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
     implementation("org.jetbrains.kotlin:kotlin-serialization:$kotlinVersion")
     implementation("com.github.johnrengelman:shadow:8.1.1")
+    implementation("org.jetbrains.dokka:dokka-gradle-plugin:1.8.10")
 }

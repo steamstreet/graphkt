@@ -25,3 +25,14 @@ kotlin {
         }
     }
 }
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                description.set("GraphKt client that uses browser fetch for HTTP requests.")
+            }
+        }
+    }
+}

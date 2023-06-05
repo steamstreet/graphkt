@@ -29,3 +29,15 @@ kotlin {
 kotlin {
     jvmToolchain(11)
 }
+
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                description.set("GraphKt server utilizing KTOR")
+            }
+        }
+    }
+}

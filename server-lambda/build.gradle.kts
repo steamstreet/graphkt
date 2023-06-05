@@ -25,23 +25,13 @@ val sourcesJar by tasks.registering(Jar::class) {
     from(sourceSets.main.get().allSource)
 }
 
+
 publishing {
     publications {
-        register("mavenJava", MavenPublication::class) {
-            from(components["java"])
-            artifact(sourcesJar.get())
-        }
-    }
-
-    afterEvaluate {
-        publications.forEach {
-            (it as? MavenPublication)?.let {
-                it.versionMapping {
-                    allVariants {
-                        fromResolutionResult()
-                    }
-                }
-
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                description.set("GraphKt server implementation for the Lambda API Gateway proxy.")
             }
         }
     }

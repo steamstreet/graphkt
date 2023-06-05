@@ -23,34 +23,9 @@ tasks.test {
 
 gradlePlugin {
     plugins {
-        create("steamql") {
+        create("graphkt") {
             id = "com.steamstreet.graphkt"
             implementationClass = "com.steamstreet.graphkt.generator.GraphQLGeneratorPlugin"
-        }
-    }
-}
-
-val sourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(sourceSets.main.get().allSource)
-}
-
-publishing {
-    publications {
-        create<MavenPublication>("pluginMaven") {
-            artifact(sourcesJar.get())
-        }
-    }
-
-    afterEvaluate {
-        publications.forEach {
-            (it as? MavenPublication)?.let {
-                it.versionMapping {
-                    allVariants {
-                        fromResolutionResult()
-                    }
-                }
-            }
         }
     }
 }
