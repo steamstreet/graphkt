@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm")
     id("java-gradle-plugin")
     `maven-publish`
+    signing
 }
 
 

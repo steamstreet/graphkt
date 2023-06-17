@@ -5,6 +5,7 @@ import com.steamstreet.graphkt.client.GraphQLClient
 import com.steamstreet.graphkt.client.QueryWriter
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.engine.*
 import io.ktor.client.request.*
 import io.ktor.content.*
 import io.ktor.http.*
@@ -18,11 +19,19 @@ import kotlinx.serialization.json.put
  */
 public class GraphQLKtorClient(
     private val endpoint: String,
-    public val http: HttpClient = HttpClient(),
+    public val engine: HttpClientEngine? = null,
     public val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }
 ) : GraphQLClient {
     private val json = Json {
         ignoreUnknownKeys = true
+    }
+
+    private val http by lazy {
+        if (engine != null) {
+            HttpClient(engine)
+        } else {
+            HttpClient()
+        }
     }
 
     /**

@@ -14,7 +14,7 @@ public class Location(
  */
 @Serializable
 public class GraphQLError(
-    public val message: String,
+    public val message: String? = null,
     public val locations: List<Location>? = null,
     public val path: List<String>? = null,
     public val extensions: JsonObject? = null
