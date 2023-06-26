@@ -1,5 +1,28 @@
 @file:Suppress("UnstableApiUsage")
+
 rootProject.name = "graphkt"
+
+class Group(
+    val group: String,
+    var version: String,
+    val artifactPrefix: String = "",
+    val aliasPrefix: String = artifactPrefix,
+    val builder: VersionCatalogBuilder
+) {
+    fun artifact(alias: String, id: String) {
+        builder.library("${aliasPrefix}$alias", group, "${artifactPrefix}$id").version(version)
+    }
+
+    fun artifact(id: String) = artifact(id, id)
+}
+
+fun VersionCatalogBuilder.group(
+    groupId: String, version: String, artifactPrefix: String = "",
+    aliasPrefix: String = artifactPrefix, items: Group.() -> Unit
+) {
+    val group = Group(groupId, version, artifactPrefix, aliasPrefix, this)
+    group.items()
+}
 
 dependencyResolutionManagement {
     repositories {
@@ -15,43 +38,29 @@ dependencyResolutionManagement {
 
     versionCatalogs {
         create("libs") {
-            val kotlinVersion = version("kotlin", "1.8.21")
-            val kotlinSerializationVersion = version("kotlin-serialization", "1.5.0")
-            val coroutinesVersion = version("kotlin-coroutines", "1.6.4")
-            val awsVersion = version("aws", "2.20.32")
-            val ktorVersion = version("ktor", "2.3.0")
-
-            library(
-                "kotlin-coroutines",
-                "org.jetbrains.kotlinx",
-                "kotlinx-coroutines-core"
-            ).versionRef(coroutinesVersion)
-
-            library(
-                "kotlin-coroutines-test",
-                "org.jetbrains.kotlinx",
-                "kotlinx-coroutines-test"
-            ).versionRef(coroutinesVersion)
-
-            fun aws(artifact: String) {
-                library("aws-${artifact}", "software.amazon.awssdk", artifact).versionRef(awsVersion)
+            group("org.jetbrains.kotlinx", "1.6.4", "kotlinx-coroutines-") {
+                artifact("core")
+                artifact("test")
             }
-            library("kotlin-test", "org.jetbrains.kotlinx", "kotlin-test").versionRef(kotlinVersion)
-            library(
-                "kotlin-test-annotations-common",
-                "org.jetbrains.kotlinx",
-                "kotlin-test-annotations-common"
-            ).versionRef(kotlinVersion)
-            library("kotlin-test-junit5", "org.jetbrains.kotlinx", "kotlin-test-junit5").versionRef(kotlinVersion)
-            library("kotlin-serialization-core", "org.jetbrains.kotlinx", "kotlinx-serialization-core").versionRef(
-                kotlinSerializationVersion
-            )
-            library("kotlin-serialization-json", "org.jetbrains.kotlinx", "kotlinx-serialization-json").versionRef(
-                kotlinSerializationVersion
-            )
 
-            library("ktor-client-core", "io.ktor", "ktor-client-core").versionRef(ktorVersion)
-            library("ktor-server-core", "io.ktor", "ktor-server-core").versionRef(ktorVersion)
+            group(
+                "org.jetbrains.kotlinx", "1.5.0", "kotlinx-serialization-",
+                "kotlin-serialization-"
+            ) {
+                artifact("core")
+                artifact("json")
+            }
+
+            group("org.jetbrains.kotlinx", "1.8.21", "kotlin") {
+                artifact("test")
+                artifact("test-annotations-common")
+                artifact("test-junit5")
+            }
+
+            group("io.ktor", "2.3.1", "ktor-") {
+                artifact("client-core")
+                artifact("server-core")
+            }
 
             library("graphql", "com.graphql-java:graphql-java:20.3")
             library("aws-lambda-events", "com.amazonaws:aws-lambda-java-events:3.8.0")

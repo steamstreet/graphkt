@@ -20,7 +20,7 @@ kotlin {
 
         val jsMain by getting {
             dependencies {
-                implementation(libs.kotlin.coroutines)
+                implementation(libs.kotlinx.coroutines.core)
             }
         }
     }

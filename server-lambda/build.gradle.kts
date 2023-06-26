@@ -9,7 +9,7 @@ dependencies {
     api(project(":server"))
 
     implementation(libs.graphql)
-    implementation(libs.kotlin.coroutines)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.aws.lambda.events)
 }
 
