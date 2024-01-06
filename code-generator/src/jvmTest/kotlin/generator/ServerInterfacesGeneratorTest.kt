@@ -1,5 +1,6 @@
-package com.steamstreet.graphkt.generator
+package generator
 
+import com.steamstreet.graphkt.generator.ServerInterfacesGenerator
 import graphql.schema.idl.SchemaParser
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -37,10 +38,7 @@ class ServerInterfacesGeneratorTest {
 
         ServerInterfacesGenerator(schema, packageName, Properties(), outputDir).execute()
 
-        val interfaces = File(outputDir, "com/steamstreet/teststeam/graphql-interfaces.kt").readText()
-        val interfacesParser = File(outputDir, "com/steamstreet/teststeam/graphql-interfaces-parser.kt").readText()
-
+        val interfaces = File(outputDir, "com/steamstreet/teststeam/server/services.kt").readText()
         println(interfaces)
-        println(interfacesParser)
     }
 }

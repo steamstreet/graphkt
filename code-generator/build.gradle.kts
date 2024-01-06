@@ -12,11 +12,16 @@ kotlin {
             }
         }
 
-        @Suppress("UNUSED_VARIABLE")
         val jvmMain by getting {
             dependencies {
                 api(libs.graphql)
                 api(libs.kotlin.poet)
+            }
+        }
+
+        val jvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
             }
         }
     }
