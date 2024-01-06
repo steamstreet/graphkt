@@ -26,11 +26,6 @@ kotlin {
     }
 }
 
-kotlin {
-    jvmToolchain(11)
-}
-
-
 publishing {
     publications {
         withType<MavenPublication> {

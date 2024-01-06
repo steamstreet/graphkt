@@ -15,16 +15,8 @@ dependencies {
 
 
 kotlin {
-    jvmToolchain(11)
-
     explicitApi()
 }
-
-val sourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("sources")
-    from(sourceSets.main.get().allSource)
-}
-
 
 publishing {
     publications {
