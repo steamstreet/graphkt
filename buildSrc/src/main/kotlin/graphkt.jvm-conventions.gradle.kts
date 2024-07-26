@@ -34,17 +34,6 @@ val javadocJar: TaskProvider<Jar> by tasks.registering(Jar::class) {
 }
 
 publishing {
-    repositories {
-        maven {
-            name = "sonatype"
-            setUrl("https://oss.sonatype.org/service/local/staging/deploy/maven2")
-            credentials {
-                username = findProperty("sonatypeUsername").toString()
-                password = findProperty("sonatypePassword").toString()
-            }
-        }
-    }
-
     publications.create<MavenPublication>("maven") {
         artifact(tasks.findByName("javadocJar"))
         groupId = "com.steamstreet"
@@ -53,7 +42,7 @@ publishing {
         from(components["java"])
 
         pom {
-            name.set(project.name)
+            name.set("GraphKT: ${project.name}")
             description.set(project.description)
             url.set("https://github.com/steamstreet/awskt")
 

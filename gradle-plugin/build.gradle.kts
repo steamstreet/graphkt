@@ -1,25 +1,14 @@
 @file:Suppress("UnstableApiUsage")
 
 plugins {
-    kotlin("jvm")
+    id("graphkt.jvm-conventions")
     id("java-gradle-plugin")
-    `maven-publish`
-    signing
-}
-
-
-kotlin {
-    jvmToolchain(11)
 }
 
 dependencies {
     api(libs.graphql)
     api(libs.kotlin.poet)
     api(project(":code-generator"))
-}
-
-tasks.test {
-    useJUnitPlatform()
 }
 
 gradlePlugin {
@@ -29,4 +18,29 @@ gradlePlugin {
             implementationClass = "com.steamstreet.graphkt.generator.GraphQLGeneratorPlugin"
         }
     }
+}
+
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            pom {
+                description.set("GraphKt Plugin")
+            }
+        }
+    }
+}
+
+signing {
+    sign(publishing.publications)
+}
+
+tasks.withType<Sign> {
+    onlyIf { project.hasProperty("signing.keyId") }
+}
+
+
+val signingTasks = tasks.withType<Sign>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(signingTasks)
 }
