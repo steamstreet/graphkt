@@ -13,9 +13,14 @@ import kotlinx.serialization.json.*
 import java.io.OutputStream
 import java.util.*
 
-private val json = Json { }
+/**
+ * Default Json used serializer used for proxy responses.
+ */
+private val json = Json.Default
 
-@Suppress("unused")
+/**
+ * The response object returned to ApiGateway.
+ */
 @Serializable
 public class ProxyResponse(
     public var statusCode: Int? = null,
@@ -57,7 +62,7 @@ public class GraphQLLambda {
                     val variablesString = event.queryStringParameters["variables"] ?: "{}"
 
                     val operation = parseGraphQLOperation(query!!)
-                    val variables = Json.parseToJsonElement(variablesString).jsonObject
+                    val variables = json.parseToJsonElement(variablesString).jsonObject
                     val errors = mutableListOf<GraphQLError>()
 
                     val result = queryBlock(

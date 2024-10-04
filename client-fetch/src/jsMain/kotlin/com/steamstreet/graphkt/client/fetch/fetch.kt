@@ -16,6 +16,10 @@ import org.w3c.fetch.RequestInit
 public external fun decodeURIComponent(encodedURI: String): String
 public external fun encodeURIComponent(encodedURI: String): String
 
+/**
+ * A version of the client that uses JS fetch directly instead of KTOR. This may be deprecated in the
+ * future if Ktor seems sufficient.
+ */
 public class GraphQLJsClient(
     private val endpoint: String,
     private val headerInitializer: suspend () -> Map<String, String> = { emptyMap() }

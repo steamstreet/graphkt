@@ -50,7 +50,7 @@ class ResponseParserGenerator(
         responsesFile.addType(interfaceType)
     }
 
-    private fun buildObject(typeDef: TypeDefinition<TypeDefinition<*>>) {
+    private fun buildObject(typeDef: ImplementingTypeDefinition<*>) {
         val isInterfaceImpl = typeDef is InterfaceTypeDefinition
         val clientType = TypeSpec.classBuilder(typeDef.name + (if (isInterfaceImpl) "Impl" else ""))
 

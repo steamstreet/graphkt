@@ -51,7 +51,7 @@ public fun Route.graphQL(
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  */
-@Suppress("BlockingMethodInNonBlockingContext", "unused")
+@Suppress("unused")
 public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     val json = Json {
         ignoreUnknownKeys = true
@@ -74,7 +74,6 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         }
     }
     config.block()
-
 
     suspend fun ApplicationCall.respondError(t: Throwable) {
         val writer = StringWriter()

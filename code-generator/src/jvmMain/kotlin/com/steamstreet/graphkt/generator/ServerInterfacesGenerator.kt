@@ -1,6 +1,7 @@
 package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.*
+import graphql.language.ImplementingTypeDefinition
 import graphql.language.InterfaceTypeDefinition
 import graphql.language.ObjectTypeDefinition
 import graphql.language.TypeDefinition
@@ -31,7 +32,7 @@ class ServerInterfacesGenerator(
         servicesFile.build().writeTo(outputDir)
     }
 
-    private fun buildInterface(typeDef: TypeDefinition<TypeDefinition<*>>) {
+    private fun buildInterface(typeDef: ImplementingTypeDefinition<*>) {
         val serverType = TypeSpec.interfaceBuilder(typeDef.name)
         (typeDef as? ObjectTypeDefinition)?.implements?.map {
             getKotlinType(it, overriddenPackage = serverPackage).copy(nullable = false)
