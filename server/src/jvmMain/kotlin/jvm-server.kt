@@ -41,20 +41,29 @@ public class ServerRequestSelection(
     override val parameters: Map<String, String>
         get() = TODO("not implemented")
 
+    private fun getJsonValue(value: Value<*>?): JsonElement {
+        return when (value) {
+            is BooleanValue -> value.isValue.let { JsonPrimitive(it) }
+            is StringValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+            is IntValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+            is FloatValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
+            is ObjectValue -> buildJsonObject {
+                value.objectFields.forEach { field ->
+                    put(field.name, getJsonValue(field.value))
+                }
+            }
+            null -> JsonNull
+            else -> TODO("not implemented: ${value.javaClass.name}")
+        }
+    }
+
     override fun inputParameter(key: String): JsonElement {
         val value = (node as Field).arguments.find { it.name == key }?.value
         return if (value is VariableReference) {
             val variableName = value.name
             variables[variableName]!!
         } else {
-            return when (value) {
-                is BooleanValue -> value.isValue.let { JsonPrimitive(it) }
-                is StringValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
-                is IntValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
-                is FloatValue -> value.value?.let { JsonPrimitive(it) } ?: JsonNull
-                null -> JsonNull
-                else -> TODO("not implemented")
-            }
+            return getJsonValue(value)
         }
     }
 
