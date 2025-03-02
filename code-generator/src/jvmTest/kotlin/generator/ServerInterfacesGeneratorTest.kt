@@ -39,6 +39,7 @@ class ServerInterfacesGeneratorTest {
         ServerInterfacesGenerator(schema, packageName, Properties(), outputDir).execute()
 
         val interfaces = File(outputDir, "com/steamstreet/teststeam/server/services.kt").readText()
+        println(outputDir.absolutePath)
         println(interfaces)
     }
 }

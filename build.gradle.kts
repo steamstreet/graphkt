@@ -1,12 +1,13 @@
+val MAJOR_VERSION = 2
+val MINOR_VERSION = 0
+
 plugins {
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
+    id("nebula.release") version "19.0.10"
 }
 
 allprojects {
     group = "com.steamstreet"
-
-    val releaseName = findProperty("RELEASE_NAME") as? String
-    version = releaseName?.removePrefix("v") ?: "1.0.0-${this.findProperty("BUILD_NUMBER")?.let { "build$it" } ?: "SNAPSHOT"}"
 }
 
 nexusPublishing {
@@ -16,4 +17,14 @@ nexusPublishing {
             password = findProperty("sonatypePassword").toString()
         }
     }
+}
+
+tasks.named("snapshot") {
+    dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishToMavenLocal" } })
+}
+
+val closeTask = tasks.named("closeAndReleaseSonatypeStagingRepository")
+tasks.named("final") {
+    dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishToSonatype" } })
+    dependsOn(closeTask)
 }

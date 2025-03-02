@@ -54,22 +54,23 @@ class ServerInterfacesGenerator(
 
         fields?.forEach { field ->
             val fieldType = getKotlinType(field.type, overriddenPackage = serverPackage)
-            if (field.inputValueDefinitions.isEmpty()) {
-                serverType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
-                    field.comments?.forEach {
-                        this.addKdoc(it.content)
-                    }
-                    if (overriddenFields.map { it.name }.contains(field.name)) {
-                        addModifiers(KModifier.OVERRIDE)
-                    }
-                }.build())
-            } else {
+//            if (field.inputValueDefinitions.isEmpty()) {
+//                serverType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
+//                    field.comments?.forEach {
+//                        this.addKdoc(it.content)
+//                    }
+//                    if (overriddenFields.map { it.name }.contains(field.name)) {
+//                        addModifiers(KModifier.OVERRIDE)
+//                    }
+//                }.build())
+//            } else {
                 serverType.addFunction(FunSpec.builder(field.name)
                         .apply {
                             field.comments?.forEach {
                                 this.addKdoc(it.content)
                             }
                             addModifiers(KModifier.ABSTRACT)
+                            addModifiers(KModifier.SUSPEND)
                             if (overriddenFields.map { it.name }.contains(field.name)) {
                                 addModifiers(KModifier.OVERRIDE)
                             }
@@ -78,7 +79,7 @@ class ServerInterfacesGenerator(
                                 addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
                             }
                         }.build())
-            }
+//            }
         }
 
         servicesFile.addType(serverType.build())
