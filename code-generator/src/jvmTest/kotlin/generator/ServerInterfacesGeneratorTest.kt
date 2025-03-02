@@ -1,6 +1,7 @@
 package generator
 
 import com.steamstreet.graphkt.generator.ServerInterfacesGenerator
+import com.steamstreet.graphkt.generator.ServerMappingGenerator
 import graphql.schema.idl.SchemaParser
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
@@ -27,6 +28,8 @@ class ServerInterfacesGeneratorTest {
                 
                 alist: [String]
                 aNonNullList: [String]!
+                
+                withParam(name: String!): String!
             }
             
             type Another {
@@ -37,9 +40,11 @@ class ServerInterfacesGeneratorTest {
         val packageName = "com.steamstreet.teststeam"
 
         ServerInterfacesGenerator(schema, packageName, Properties(), outputDir).execute()
+        ServerMappingGenerator(schema, packageName, Properties(), outputDir).execute()
 
         val interfaces = File(outputDir, "com/steamstreet/teststeam/server/services.kt").readText()
-        println(outputDir.absolutePath)
+        val mappings = File(outputDir, "com/steamstreet/teststeam/server/service-mapping.kt").readText()
         println(interfaces)
+        println(mappings)
     }
 }

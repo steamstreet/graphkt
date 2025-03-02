@@ -33,12 +33,12 @@ open class GraphQLCodeGeneratorTask : DefaultTask() {
 
     @OutputDirectory
     fun getGeneratedOutputDir(): File {
-        return File(project.buildDir, "graphql/generated")
+        return project.layout.buildDirectory.file("graphql/generated").get().asFile
     }
 
     @OutputDirectory
     fun getServerGeneratedOutputDir(): File {
-        return File(project.buildDir, "graphql/server/generated")
+        return project.layout.buildDirectory.file("graphql/server/generated").get().asFile
     }
 
     @TaskAction
