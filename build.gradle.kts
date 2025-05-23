@@ -1,9 +1,6 @@
-val MAJOR_VERSION = 2
-val MINOR_VERSION = 0
-
 plugins {
     id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
-    id("nebula.release") version "19.0.10"
+    id("nebula.release") version "20.2.0"
 }
 
 allprojects {

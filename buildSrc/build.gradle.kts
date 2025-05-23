@@ -11,7 +11,7 @@ plugins {
     // https://github.com/gradle/gradle/issues/16345
 }
 
-val kotlinVersion = "2.0.20"
+val kotlinVersion = "2.1.21"
 
 repositories {
     mavenCentral()

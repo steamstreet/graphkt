@@ -37,7 +37,6 @@ publishing {
     publications.create<MavenPublication>("maven") {
         artifact(tasks.findByName("javadocJar"))
         groupId = "com.steamstreet"
-        artifactId = "graphkt-${artifactId}"
 
         from(components["java"])
 

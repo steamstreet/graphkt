@@ -86,7 +86,7 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         })
 
         if (errorHandler != null) {
-            errorHandler?.invoke(listOf(error))
+            errorHandler.invoke(listOf(error))
         } else {
             t.printStackTrace()
         }

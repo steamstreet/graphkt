@@ -32,15 +32,14 @@ class ServerMappingGenerator(
     private fun CodeBlock.Builder.fieldInitializationCode(
         fieldName: String,
         fieldType: Type<Type<*>>,
-        inputs: List<InputValueDefinition>?
+        inputs: List<InputValueDefinition>?,
+        directField: Boolean = false
     ) {
         val kotlinFieldType = getKotlinType(fieldType)
         val baseFieldType = if (fieldType is NonNullType) fieldType.type else fieldType
 
         val params = inputs?.map { it.name }?.joinToString(",")?.let {
-            if (it.isNotBlank()) {
-                "($it)"
-            } else ""
+            "($it)"
         } ?: ""
 
         if (kotlinFieldType is ClassName) {
@@ -50,7 +49,11 @@ class ServerMappingGenerator(
                 "kotlin.Int",
                 "kotlin.Float" -> {
                     add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
-                        buildFieldFetcher(fieldName, inputs)
+                        if (directField) {
+                            add("%L", fieldName)
+                        } else {
+                            buildFieldFetcher(fieldName, inputs)
+                        }
                     })
                 }
 
@@ -58,9 +61,9 @@ class ServerMappingGenerator(
                     if (isEnum(baseFieldType)) {
                         add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
                             if (fieldType is NonNullType) {
-                                add("%L.name", fieldName)
+                                add("%L().name", fieldName)
                             } else {
-                                add("%L?.name", fieldName)
+                                add("%L()?.name", fieldName)
                             }
                         })
                     } else if (isScalar(baseFieldType)) {
@@ -102,11 +105,11 @@ class ServerMappingGenerator(
 
             if (fieldType is NonNullType) {
                 add("%T(%L$params.map·{ %L })", jsonArrayType, fieldName, buildCodeBlock {
-                    fieldInitializationCode("it", baseType, null)
+                    fieldInitializationCode("it", baseType, null, directField = true)
                 })
             } else {
                 add("%L$params?.let·{ list -> %T(list.map·{ %L }) } ?: %T", fieldName, jsonArrayType, buildCodeBlock {
-                    fieldInitializationCode("it", baseType, null)
+                    fieldInitializationCode("it", baseType, null, directField = true)
                 }, jsonNullType)
             }
         }
@@ -208,62 +211,62 @@ class ServerMappingGenerator(
 
                 file.addFunction(
                     FunSpec.builder("gqlSelect")
-                    .receiver(objectType)
-                    .addParameter("field", requestSelectionClass)
-                    .addModifiers(KModifier.SUSPEND)
-                    .apply {
-                        beginControlFlow("val fields = field.children.associate {")
-                        addStatement("it.setAsContext()")
-                        beginControlFlow("val value = try {")
-                        beginControlFlow("when(it.name) {")
-                        fieldDefinitions.forEach { field ->
-                            if (field.inputValueDefinitions.isEmpty()) {
-                                addStatement("%S -> gql_%L(it)", field.name, field.name)
-                            } else {
-                                addStatement(
-                                    "%S -> gql_%L(it, %L)", field.name, field.name,
-                                    field.inputValueDefinitions.map {
-                                        CodeBlock.builder().apply {
-                                            variableToInputParameter(it)
-                                        }.build().toString()
-                                    }.joinToString(", ")
-                                )
-                            }
-                        }
-
-                        if (type is InterfaceTypeDefinition) {
-                            addStatement(
-                                """"__typename" -> %T(%L)""",
-                                jsonPrimitiveType,
-                                CodeBlock.builder().apply {
-                                    this.beginControlFlow("when (this) {")
-                                    schema.types().values.filter {
-                                        it is ObjectTypeDefinition && it.implements.mapNotNull { (it as? TypeName)?.name }
-                                            .contains(type.name)
-                                    }.forEach {
-                                        addStatement("is %L -> %S", it.name, it.name)
-                                    }
+                        .receiver(objectType)
+                        .addParameter("field", requestSelectionClass)
+                        .addModifiers(KModifier.SUSPEND)
+                        .apply {
+                            beginControlFlow("val fields = field.children.associate {")
+                            addStatement("it.setAsContext()")
+                            beginControlFlow("val value = try {")
+                            beginControlFlow("when(it.name) {")
+                            fieldDefinitions.forEach { field ->
+                                if (field.inputValueDefinitions.isEmpty()) {
+                                    addStatement("%S -> gql_%L(it)", field.name, field.name)
+                                } else {
                                     addStatement(
-                                        "else -> throw %T()",
-                                        ClassName("kotlin", "IllegalArgumentException")
+                                        "%S -> gql_%L(it, %L)", field.name, field.name,
+                                        field.inputValueDefinitions.map {
+                                            CodeBlock.builder().apply {
+                                                variableToInputParameter(it)
+                                            }.build().toString()
+                                        }.joinToString(", ")
                                     )
-                                    endControlFlow()
-                                }.build().toString()
-                            )
-                        } else {
-                            addStatement(""""__typename" -> %T("${type.name}")""", jsonPrimitiveType)
+                                }
+                            }
+
+                            if (type is InterfaceTypeDefinition) {
+                                addStatement(
+                                    """"__typename" -> %T(%L)""",
+                                    jsonPrimitiveType,
+                                    CodeBlock.builder().apply {
+                                        this.beginControlFlow("when (this) {")
+                                        schema.types().values.filter {
+                                            it is ObjectTypeDefinition && it.implements.mapNotNull { (it as? TypeName)?.name }
+                                                .contains(type.name)
+                                        }.forEach {
+                                            addStatement("is %L -> %S", it.name, it.name)
+                                        }
+                                        addStatement(
+                                            "else -> throw %T()",
+                                            ClassName("kotlin", "IllegalArgumentException")
+                                        )
+                                        endControlFlow()
+                                    }.build().toString()
+                                )
+                            } else {
+                                addStatement(""""__typename" -> %T("${type.name}")""", jsonPrimitiveType)
+                            }
+                            addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+                            endControlFlow()
+                            nextControlFlow("catch (t: Throwable)")
+                            addStatement("it.error(t)")
+                            addStatement("JsonNull")
+                            endControlFlow()
+                            addStatement("it.name to value")
+                            endControlFlow()
+                            addStatement("return %T(fields)", jsonObjectType)
                         }
-                        addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
-                        endControlFlow()
-                        nextControlFlow("catch (t: Throwable)")
-                        addStatement("it.error(t)")
-                        addStatement("JsonNull")
-                        endControlFlow()
-                        addStatement("it.name to value")
-                        endControlFlow()
-                        addStatement("return %T(fields)", jsonObjectType)
-                    }
-                    .returns(jsonElementType).build())
+                        .returns(jsonElementType).build())
             }
         }
         file.build().writeTo(outputDir)

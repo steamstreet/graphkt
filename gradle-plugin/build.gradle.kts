@@ -24,6 +24,7 @@ gradlePlugin {
 publishing {
     publications {
         withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
             pom {
                 description.set("GraphKt Plugin")
             }
