@@ -194,8 +194,11 @@ class ResponseParserGenerator(
                     } else {
                         val typeDefinition = schema.getType(baseType)
                         if (typeDefinition.isPresent) {
+                            val ktType = getKotlinType(baseType).copy(nullable = false)
                             if (typeDefinition.get() is EnumTypeDefinition) {
-                                addStatement("%T.valueOf(it.%T.content)", getKotlinType(baseType).copy(nullable = false), jsonPrimitiveFunction)
+                                // Use the custom serializer via decodeFromJsonElement
+                                // Ensure jsonParserType refers to the kotlinx.serialization.json.Json instance
+                                addStatement("%T.decodeFromJsonElement(%T.serializer(), it)", jsonParserType, ktType)
                             } else {
                                 beginControlFlow("it.%T.let", jsonObjectFunction)
                                 if (schema.isInterfaceOrUnion(baseType)) {
