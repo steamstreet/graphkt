@@ -16,6 +16,8 @@ gradlePlugin {
         create("graphkt") {
             id = "com.steamstreet.graphkt"
             implementationClass = "com.steamstreet.graphkt.generator.GraphQLGeneratorPlugin"
+            displayName = "GraphKt Plugin"
+            description = "Plugin for generating GraphQL code from a GraphQL schema"
         }
     }
 }
