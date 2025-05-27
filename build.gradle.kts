@@ -30,7 +30,7 @@ tasks.named("postRelease") {
     // First, upload all publications from all subprojects
     subprojects.forEach { subproject ->
         subproject.plugins.withId("org.danilopianini.publish-on-central") {
-            dependsOn("${subproject.path}:uploadAllPublicationsToProjectLocalRepository")
+            dependsOn("${subproject.path}:publishAllPublicationsToProjectLocalRepository")
         }
     }
 
