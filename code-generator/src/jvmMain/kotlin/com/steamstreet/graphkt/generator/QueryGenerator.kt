@@ -60,7 +60,7 @@ class QueryGenerator(
                                         }
                                         if (requiresBlock) {
                                             addParameter(ParameterSpec.builder("block",
-                                                    LambdaTypeName.get(ClassName(clientPackage, "_${foundType?.name}$label"),
+                                                    LambdaTypeName.get(ClassName(clientPackage, "_${foundType.name}$label"),
                                                             emptyList(), ClassName("kotlin", "Unit"))).build())
                                         }
 
@@ -157,7 +157,7 @@ class QueryGenerator(
                                         if (requiresBlock) {
                                             addStatement("""writer.println(" {")""")
                                             beginControlFlow("writer.indent")
-                                            addStatement("""_${foundType?.name}${label}(it).block()""")
+                                            addStatement("""_${foundType.name}${label}(it).block()""")
                                             endControlFlow()
                                             addStatement("""writer.println("}")""")
                                         }
@@ -189,7 +189,7 @@ class QueryGenerator(
                     .addParameter(ParameterSpec.builder("block",
                             LambdaTypeName.get(ClassName(clientPackage, "_${operationType.typeName.name}$label"),
                                     emptyList(), ClassName("kotlin", "Unit"))).build())
-                    .beginControlFlow("val result = executeAndParse(name, %T, ::${operationType.typeName.name}) {", jsonFunction)
+                    .beginControlFlow("val result = executeAndParse(name, %T, ::${operationType.typeName.name}Response) {", jsonFunction)
                     .addStatement("""this.type = "${operationType.name}"""")
                     .addStatement("""_${operationType.typeName.name}Query(this).block()""")
                     .endControlFlow()

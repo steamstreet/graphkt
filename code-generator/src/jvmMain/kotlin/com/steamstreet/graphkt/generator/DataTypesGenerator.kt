@@ -32,7 +32,7 @@ class DataTypesGenerator(
     val commonFile = FileSpec.builder(packageName, "common")
 
     fun execute() {
-        commonFile.suppress("JSON_FORMAT_REDUNDANT_DEFAULT")
+        commonFile.suppress("JSON_FORMAT_REDUNDANT_DEFAULT", "RedundantVisibilityModifier")
         commonFile.addImport("kotlinx.serialization.builtins", "serializer")
         generateInputTypes()
         scalarAliases()
@@ -179,8 +179,6 @@ class DataTypesGenerator(
                     .build()
             )
 
-
-
             enumSerializer.addFunction(
                 FunSpec.builder("serialize")
                     .addModifiers(KModifier.OVERRIDE)
@@ -272,177 +270,20 @@ class DataTypesGenerator(
                                     .build()
                             )
                             .build()
-                    ).build()
+                    ).apply {
+                        val enumValues = enumType.enumValueDefinitions.map {
+                            CodeBlock.of("%L", it.name)
+                        }
+                        val listType = List::class.asClassName().parameterizedBy(enumSealedClassName)
+                        addProperty(
+                            PropertySpec.builder("entries", listType).getter(
+                                FunSpec.getterBuilder().addStatement("return listOf(%L)", enumValues.joinToCode())
+                                    .build()
+                            ).build()
+                        )
+                    }.build()
                 )
             }.build())
-//
-//            commonFile.addType(TypeSpec.enumBuilder(enumClassName).apply {
-//                enumType.comments?.forEach {
-//                    this.addKdoc(it.content)
-//                }
-//                enumType.enumValueDefinitions.forEach {
-//                    this.addEnumConstant(it.name, TypeSpec.anonymousClassBuilder().apply {
-//                        it.comments?.forEach {
-//                            this.addKdoc(it.content)
-//                        }
-//                    }.build())
-//                }
-//            }.build())
         }
     }
-//
-//    private fun generateEnum(definition: EnumTypeDefinition) {
-//        val name = ClassName(id.substringBeforeLast("."), id.substringAfterLast("."))
-//
-//        val serializerClassName = ClassName(
-//            name.packageName, name.simpleName + "Serializer"
-//        )
-//        val enumSerializer = TypeSpec.objectBuilder(
-//            serializerClassName
-//        )
-//        enumSerializer.addSuperinterface(
-//            KSerializer::class.asClassName()
-//                .parameterizedBy(name)
-//        )
-//
-//        enumSerializer.addProperty(
-//            PropertySpec.builder(
-//                "descriptor",
-//                SerialDescriptor::class, KModifier.OVERRIDE
-//            )
-//                .initializer(
-//                    "%M(%S, %T.STRING)",
-//                    MemberName("kotlinx.serialization.descriptors", "PrimitiveSerialDescriptor"),
-//                    name.simpleName,
-//                    PrimitiveKind::class
-//                )
-//                .build()
-//        )
-//
-//
-//        var enumType = TypeSpec.classBuilder(name).apply {
-//            primaryConstructor(
-//                FunSpec.constructorBuilder()
-//                    .addParameter(ParameterSpec.builder("name", String::class).build())
-//                    .build()
-//            )
-//            addProperty(
-//                PropertySpec.builder("name", String::class)
-//                    .initializer("name").build()
-//            )
-//            addModifiers(KModifier.SEALED)
-//            addAnnotation(
-//                AnnotationSpec.builder(Serializable::class)
-//                    .addMember("with = %T::class", serializerClassName)
-//                    .build()
-//            )
-//
-//            addFunction(
-//                FunSpec.builder("toString").addModifiers(KModifier.OVERRIDE)
-//                    .returns(String::class)
-//                    .addStatement("return name")
-//                    .build()
-//            )
-//        }.build()
-//
-//        fun getEnumMembers(): List<TypeSpec> {
-//            return definition.enumValueDefinitions.mapNotNull { valueDefinition ->
-//
-//                val enumValue = member.traits["smithy.api#enumValue"]?.jsonPrimitive?.contentOrNull
-//                if (enumValue != null) {
-//                    TypeSpec.objectBuilder(memberId)
-//                        .superclass(name)
-//                        .addSuperclassConstructorParameter(
-//                            "%S", enumValue
-//                        )
-//                        .addTraitDocs(member.traits)
-//                        .build()
-//                } else null
-//            }
-//        }
-//
-//        enumType = enumType.toBuilder().apply {
-//            shape.mixins.forEach { mixin ->
-//                val mixinShape = spec.shapes[mixin.target]
-//                if (mixinShape != null) {
-//                    getEnumMembers(mixinShape).forEach {
-//                        this.addType(it)
-//                    }
-//                }
-//            }
-//
-//            getEnumMembers(shape).forEach {
-//                this.addType(it)
-//            }
-//
-//            addType(
-//                TypeSpec.classBuilder("Unknown")
-//                    .superclass(name)
-//                    .primaryConstructor(
-//                        FunSpec.constructorBuilder()
-//                            .addParameter(ParameterSpec.builder("name", String::class).build())
-//                            .build()
-//                    )
-//                    .addSuperclassConstructorParameter(
-//                        "name"
-//                    )
-//                    .build()
-//            )
-//
-//            addType(
-//                TypeSpec.companionObjectBuilder().addFunction(
-//                    FunSpec.builder("fromName")
-//                        .addParameter("name", String::class)
-//                        .returns(name)
-//                        .addCode(
-//                            CodeBlock.builder()
-//                                .beginControlFlow("return when (name)")
-//                                .apply {
-//                                    fun addShapeMembers(shape: Shape) {
-//                                        shape.members.forEach { (memberName, member) ->
-//                                            val enumValue =
-//                                                member.traits.smithyTrait("enumValue")?.jsonPrimitive?.contentOrNull
-//                                            addStatement("%S -> %L", enumValue, memberName)
-//                                        }
-//                                    }
-//
-//                                    shape.mixins.forEach { mixin ->
-//                                        spec.shapes[mixin.target]?.let {
-//                                            addShapeMembers(it)
-//                                        }
-//                                    }
-//                                    addShapeMembers(shape)
-//                                    addStatement("else -> Unknown(name)")
-//                                }
-//                                .endControlFlow()
-//                                .build()
-//                        )
-//                        .build()
-//                ).build()
-//            )
-//        }.build()
-//
-//        // now generate the serialization calls
-//        enumSerializer.addFunction(
-//            FunSpec.builder("serialize")
-//                .addModifiers(KModifier.OVERRIDE)
-//                .addParameter("encoder", Encoder::class)
-//                .addParameter("value", name)
-//                .addStatement("encoder.encodeString(value.name)")
-//                .build()
-//        )
-//
-//        enumSerializer.addFunction(
-//            FunSpec.builder("deserialize")
-//                .addModifiers(KModifier.OVERRIDE)
-//                .returns(name)
-//                .addParameter("decoder", Decoder::class)
-//                .addCode(
-//                    CodeBlock.builder()
-//                        .addStatement("return %T.fromName(decoder.decodeString())", name)
-//                        .build()
-//                )
-//                .build()
-//        )
-//    }
 }

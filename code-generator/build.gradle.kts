@@ -12,16 +12,24 @@ kotlin {
             }
         }
 
-        val jvmMain by getting {
+        jvmMain {
             dependencies {
                 api(libs.graphql)
                 api(libs.kotlin.poet)
             }
         }
 
-        val jvmTest by getting {
+        jvmTest {
             dependencies {
                 implementation(kotlin("test"))
+                implementation("org.jetbrains.kotlin:kotlin-compiler:2.1.21")
+                implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.1.21")
+
+                // Add dependencies on common-runtime and server modules
+                implementation(projects.commonRuntime)
+                implementation(projects.server)
+                implementation(projects.client)
+                implementation(libs.kotlin.serialization.json)
             }
         }
     }
