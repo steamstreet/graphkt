@@ -13,8 +13,8 @@ nexusPublishing {
             nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
             snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
 
-            username = findProperty("sonatypeUsername").toString()
-            password = findProperty("sonatypePassword").toString()
+            username = findProperty("mavenCentralUsername").toString()
+            password = findProperty("mavenCentralPassword").toString()
         }
     }
 }
