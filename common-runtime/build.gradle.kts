@@ -28,7 +28,6 @@ publishOnCentral {
     licenseName.set("MIT License")
     licenseUrl.set("https://opensource.org/licenses/MIT")
     projectUrl.set("https://github.com/steamstreet/graphkt")
-    scmConnection.set("git:git@github.com:steamstreet/graphkt")
 }
 
 //
