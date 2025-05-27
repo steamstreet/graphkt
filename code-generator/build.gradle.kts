@@ -35,14 +35,14 @@ kotlin {
     }
 }
 
-
-publishing {
-    publications {
-        withType<MavenPublication> {
-            artifactId = "graphkt-${artifactId}"
-            pom {
-                description.set("GraphKt code generation library.")
-            }
-        }
-    }
-}
+//
+//publishing {
+//    publications {
+//        withType<MavenPublication> {
+//            artifactId = "graphkt-${artifactId}"
+//            pom {
+//                description.set("GraphKt code generation library.")
+//            }
+//        }
+//    }
+//}
