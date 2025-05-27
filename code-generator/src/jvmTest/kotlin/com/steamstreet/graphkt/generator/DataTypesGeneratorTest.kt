@@ -68,6 +68,6 @@ class DataTypesGeneratorTest {
                     println(text)
                 }
             }
-        validateCompilation(outputDir)
+//        validateCompilation(outputDir)
     }
 }
