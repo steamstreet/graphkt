@@ -25,14 +25,14 @@ kotlin {
         }
     }
 }
-//
-//publishing {
-//    publications {
-//        withType<MavenPublication> {
-//            artifactId = "graphkt-${artifactId}"
-//            pom {
-//                description.set("GraphKt server utilizing KTOR")
-//            }
-//        }
-//    }
-//}
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                description.set("GraphKt server utilizing KTOR")
+            }
+        }
+    }
+}

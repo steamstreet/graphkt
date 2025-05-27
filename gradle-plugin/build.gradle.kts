@@ -22,46 +22,46 @@ gradlePlugin {
     }
 }
 
-//
-//publishing {
-//    publications {
-//        withType<MavenPublication> {
-//            artifactId = "graphkt-${artifactId}"
-//            pom {
-//                name.set("GraphKT: ${project.name}")
-//                url.set("https://github.com/steamstreet/graphkt")
-//                description.set("GraphKt Plugin")
-//
-//                licenses {
-//                    license {
-//                        name.set("MIT")
-//                        url.set("https://opensource.org/licenses/MIT")
-//                    }
-//                }
-//                developers {
-//                    developer {
-//                        organization.set("SteamStreet LLC")
-//                        organizationUrl.set("https://github.com/steamstreet")
-//                    }
-//                }
-//                scm {
-//                    url.set("https://github.com/steamstreet/graphkt")
-//                }
-//            }
-//        }
-//    }
-//}
-//
-//signing {
-//    sign(publishing.publications)
-//}
+
+publishing {
+    publications {
+        withType<MavenPublication> {
+            artifactId = "graphkt-${artifactId}"
+            pom {
+                name.set("GraphKT: ${project.name}")
+                url.set("https://github.com/steamstreet/graphkt")
+                description.set("GraphKt Plugin")
+
+                licenses {
+                    license {
+                        name.set("MIT")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+                developers {
+                    developer {
+                        organization.set("SteamStreet LLC")
+                        organizationUrl.set("https://github.com/steamstreet")
+                    }
+                }
+                scm {
+                    url.set("https://github.com/steamstreet/graphkt")
+                }
+            }
+        }
+    }
+}
+
+signing {
+    sign(publishing.publications)
+}
 
 tasks.withType<Sign> {
     onlyIf { project.hasProperty("signing.keyId") }
 }
-//
-//
-//val signingTasks = tasks.withType<Sign>()
-//tasks.withType<AbstractPublishToMaven>().configureEach {
-//    dependsOn(signingTasks)
-//}
+
+
+val signingTasks = tasks.withType<Sign>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(signingTasks)
+}
