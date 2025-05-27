@@ -1,7 +1,6 @@
 plugins {
-//    id("io.github.gradle-nexus.publish-plugin") version "1.3.0"
     id("nebula.release") version "20.2.0"
-    id ("org.danilopianini.publish-on-central") version "8.0.7" apply false
+    id ("org.danilopianini.publish-on-central") version "8.0.7"
 }
 
 allprojects {
@@ -28,9 +27,16 @@ allprojects {
 //}
 
 tasks.named("postRelease") {
+    // First, upload all publications from all subprojects
     subprojects.forEach { subproject ->
         subproject.plugins.withId("org.danilopianini.publish-on-central") {
-            dependsOn("${subproject.path}:publishAllPublicationsToMavenCentralRepository")
+            dependsOn("${subproject.path}:uploadAllPublicationsToProjectLocalRepository")
         }
     }
+
+    // Then zip and release once at the root
+    dependsOn(
+        "zipMavenCentralPortalPublication",
+        "releaseMavenCentralPortalPublication"
+    )
 }
