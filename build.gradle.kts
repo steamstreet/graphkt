@@ -27,16 +27,19 @@ allprojects {
 //}
 
 tasks.named("postRelease") {
-    // First, upload all publications from all subprojects
-    subprojects.forEach { subproject ->
-        subproject.plugins.withId("org.danilopianini.publish-on-central") {
-            dependsOn("${subproject.path}:publishAllPublicationsToProjectLocalRepository")
-        }
-    }
-
-    // Then zip and release once at the root
     dependsOn(
+        "publishAllPublicationsToProjectLocalRepository",
         "zipMavenCentralPortalPublication",
         "releaseMavenCentralPortalPublication"
     )
+}
+
+tasks {
+    // Prevent publishing the root project (since is empty)
+    withType<AbstractPublishToMaven>().configureEach {
+        enabled = false
+    }
+    withType<GenerateModuleMetadata>().configureEach {
+        enabled = false
+    }
 }
