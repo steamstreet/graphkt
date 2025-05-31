@@ -19,6 +19,19 @@ nexusPublishing {
     }
 }
 
+// Create a task that will publish to Maven Local without running dokka tasks
+subprojects {
+    afterEvaluate {
+        gradle.taskGraph.whenReady {
+            if (gradle.taskGraph.hasTask(":${project.name}:publishToMavenLocal")) {
+                tasks.matching { it.name in listOf("javadoc", "dokkaHtml", "dokkaJavadoc") }.configureEach {
+                    enabled = false
+                }
+            }
+        }
+    }
+}
+
 tasks.named("snapshot") {
     dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishToMavenLocal" } })
 }

@@ -128,9 +128,14 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         val query = requestElement["query"]?.jsonPrimitive?.contentOrNull?.let {
             parseGraphQLOperation(it)
         }
-        val variables = requestElement["variables"]?.jsonObject
+        val variables = requestElement["variables"] as? JsonObject
 
-        invoke(call, query, variables, mutationGetter)
+        val operationInvocation = when (query?.operation) {
+            OperationDefinition.Operation.QUERY -> queryGetter
+            OperationDefinition.Operation.MUTATION -> mutationGetter
+            else -> null
+        }
+        invoke(call, query, variables, operationInvocation)
     }
 
     get {
@@ -138,7 +143,7 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
             parseGraphQLOperation(it)
         }
         val variables = call.request.queryParameters["variables"]?.let {
-            json.parseToJsonElement(it) as JsonObject
+            json.parseToJsonElement(it) as? JsonObject
         }
         invoke(call, query, variables, queryGetter)
     }
