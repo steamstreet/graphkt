@@ -20,7 +20,7 @@ class ServerInterfacesGenerator(
     private val servicesFile = FileSpec.builder("$packageName.server", "services")
 
     fun execute() {
-        servicesFile.suppress("PropertyName")
+        servicesFile.suppress("PropertyName", "RedundantVisibilityModifier")
 
         schema.types().values.forEach { typeDef ->
             when (typeDef) {

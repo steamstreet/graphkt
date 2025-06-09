@@ -21,7 +21,7 @@ class ResponseParserGenerator(
     fun execute() {
         responsesFile.suppress(
             "ComplexRedundantLet", "SimpleRedundantLet", "unused", "UnnecessaryVariable",
-            "NestedLambdaShadowedImplicitParameter", "PropertyName"
+            "NestedLambdaShadowedImplicitParameter", "PropertyName", "RedundantVisibilityModifier"
         )
 
         schema.types().values.forEach { typeDef ->
@@ -250,7 +250,22 @@ class ResponseParserGenerator(
                                 )
                             } else {
                                 beginControlFlow("it.%T.let", jsonObjectFunction)
-                                addStatement("${typeName}Response(_response.forElement(%S), it)", fieldName)
+
+                                if (typeDefinition.get() is InterfaceTypeDefinition) {
+                                    addStatement("""val typeName = it.get("__typename")?.jsonPrimitive?.contentOrNull""")
+                                    beginControlFlow("when (typeName)")
+                                    schema.types().values.filter {
+                                        it is ObjectTypeDefinition && it.implements.mapNotNull { (it as? TypeName)?.name }
+                                            .contains(baseType.name)
+                                    }.forEach {
+                                        addStatement("%S -> ${it.name}Response(_response.forElement(%S), it)", it.name, fieldName)
+                                    }
+                                    addStatement("else -> ${typeName}Response(_response.forElement(%S), it)", fieldName)
+                                    endControlFlow()
+                                } else {
+                                    addStatement("${typeName}Response(_response.forElement(%S), it)", fieldName)
+                                }
+
                                 endControlFlow()
                             }
                         }

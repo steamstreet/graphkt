@@ -13,6 +13,11 @@ public interface RequestSelection {
     public val name: String
 
     /**
+     * For polymorphic types, defines the concrete type for this selector.
+     */
+    public val typeName: String? get() = null
+
+    /**
      * The list of children being requested
      */
     public val children: List<RequestSelection>

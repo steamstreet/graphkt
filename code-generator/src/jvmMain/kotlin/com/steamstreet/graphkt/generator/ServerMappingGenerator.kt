@@ -172,7 +172,8 @@ class ServerMappingGenerator(
     }
 
     fun execute() {
-        file.suppress("FunctionName", "UNUSED_PARAMETER", "unused", "RemoveRedundantQualifierName")
+        file.suppress("FunctionName", "UNUSED_PARAMETER", "unused", "RemoveRedundantQualifierName",
+            "RedundantVisibilityModifier")
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
                 val objectType = ClassName(serverPackage, type.name)
@@ -210,15 +211,14 @@ class ServerMappingGenerator(
                 }
 
                 file.addFunction(
-                    FunSpec.builder("gqlSelect")
+                    FunSpec.builder("gqlSelectChild")
                         .receiver(objectType)
-                        .addParameter("field", requestSelectionClass)
+                        .addParameter("child", requestSelectionClass)
                         .addModifiers(KModifier.SUSPEND)
                         .apply {
-                            beginControlFlow("val fields = field.children.associate {")
+                            addStatement("val it = child")
                             addStatement("it.setAsContext()")
-                            beginControlFlow("val value = try {")
-                            beginControlFlow("when(it.name) {")
+                            beginControlFlow("val value = when(it.name) {")
                             fieldDefinitions.forEach { field ->
                                 if (field.inputValueDefinitions.isEmpty()) {
                                     addStatement("%S -> gql_%L(it)", field.name, field.name)
@@ -256,15 +256,48 @@ class ServerMappingGenerator(
                             } else {
                                 addStatement(""""__typename" -> %T("${type.name}")""", jsonPrimitiveType)
                             }
-                            addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+
+                            if (type is InterfaceTypeDefinition) {
+                                beginControlFlow("else ->")
+                                beginControlFlow("when(it.typeName)")
+                                schema.types().values.filter {
+                                    it is ObjectTypeDefinition && it.implements.mapNotNull { (it as? TypeName)?.name }
+                                        .contains(type.name)
+                                }.forEach {
+                                    addStatement("%S -> (this as? %L)?.gqlSelectChild(it)", it.name, it.name)
+                                }
+                                addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+                                endControlFlow()
+                                endControlFlow()
+                            } else {
+                                addStatement("else -> throw %T()", ClassName("kotlin", "IllegalArgumentException"))
+                            }
+
                             endControlFlow()
+                            addStatement("return value", jsonObjectType)
+                        }
+                        .returns(jsonElementType.copy(nullable = true)).build())
+
+                file.addFunction(
+                    FunSpec.builder("gqlSelect")
+                        .receiver(objectType)
+                        .addParameter("field", requestSelectionClass)
+                        .addModifiers(KModifier.SUSPEND)
+                        .apply {
+                            beginControlFlow("val fields = field.children.mapNotNull {")
+                            beginControlFlow("val value = try {")
+                            addStatement("gqlSelectChild(it)")
                             nextControlFlow("catch (t: Throwable)")
                             addStatement("it.error(t)")
-                            addStatement("JsonNull")
+                            addStatement("null")
                             endControlFlow()
+                            beginControlFlow("if (value != null)")
                             addStatement("it.name to value")
+                            nextControlFlow("else")
+                            addStatement("null")
                             endControlFlow()
-                            addStatement("return %T(fields)", jsonObjectType)
+                            endControlFlow()
+                            addStatement("return %T(fields.toMap())", jsonObjectType)
                         }
                         .returns(jsonElementType).build())
             }

@@ -25,7 +25,8 @@ public class ServerRequestSelection(
     public val parent: ServerRequestSelection?,
     public val variables: Map<String, JsonElement>,
     public val node: Node<*>,
-    public val errors: MutableList<GraphQLError>
+    public val errors: MutableList<GraphQLError>,
+    override val typeName: String? = null
 ) : RequestSelection {
     override val name: String
         get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
@@ -36,7 +37,15 @@ public class ServerRequestSelection(
                 is SelectionSet -> node
                 else -> TODO("not implemented")
             }
-            return selectionSet.selections.map { ServerRequestSelection(this, variables, it, errors) }
+            return selectionSet.selections.flatMap { selection: Selection<*> ->
+                if (selection is InlineFragment) {
+                    selection.selectionSet.selections.map {
+                        ServerRequestSelection(this, variables, it, errors, selection.typeCondition?.name)
+                    }
+                } else {
+                    listOf(ServerRequestSelection(this, variables, selection, errors))
+                }
+            }
         }
     override val parameters: Map<String, String>
         get() = TODO("not implemented")

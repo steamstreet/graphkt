@@ -21,7 +21,7 @@ class QueryGenerator(
     private val label = "Query"
 
     fun execute() {
-        file.suppress("unused", "UNUSED_CHANGED_VALUE", "PropertyName", "FunctionName", "ClassName")
+        file.suppress("unused", "UNUSED_CHANGED_VALUE", "PropertyName", "FunctionName", "ClassName", "RedundantVisibilityModifier")
 
         schema.types().values.forEach { type ->
             if (type is ObjectTypeDefinition || type is InterfaceTypeDefinition) {
@@ -43,6 +43,23 @@ class QueryGenerator(
                                             .build())
                                     .build())
 
+
+                            // For interfaces, add onSubType functions for each implementing type
+                            if (type is InterfaceTypeDefinition) {
+                                val implementingTypes = schema.getImplementingTypes(type)
+                                implementingTypes.forEach { subType ->
+                                    addFunction(FunSpec.builder("on${subType.name}")
+                                        .addParameter(ParameterSpec.builder("block",
+                                            LambdaTypeName.get(ClassName(clientPackage, "_${subType.name}$label"),
+                                                emptyList(), ClassName("kotlin", "Unit"))).build())
+                                        .addStatement("""writer.println("... on ${subType.name} {")""")
+                                        .beginControlFlow("writer.indent")
+                                        .addStatement("""_${subType.name}${label}(writer).block()""")
+                                        .endControlFlow()
+                                        .addStatement("""writer.println("}")""")
+                                        .build())
+                                }
+                            }
 
                             val fields = if (type is ObjectTypeDefinition) type.fieldDefinitions
                             else if (type is InterfaceTypeDefinition) type.fieldDefinitions

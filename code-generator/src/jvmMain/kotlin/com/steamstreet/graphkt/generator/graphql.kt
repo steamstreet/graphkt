@@ -48,6 +48,18 @@ fun TypeDefinitionRegistry.getOverriddenFields(typeDefinition: ObjectTypeDefinit
     }
 }
 
+/**
+ * Get all object types that implement a given interface
+ */
+fun TypeDefinitionRegistry.getImplementingTypes(interfaceType: InterfaceTypeDefinition): List<ObjectTypeDefinition> {
+    return types().values.filterIsInstance<ObjectTypeDefinition>()
+        .filter { objectType ->
+            objectType.implements.any { implementedInterface ->
+                ((implementedInterface as? TypeName)?.name) == interfaceType.name
+            }
+        }
+}
+
 fun TypeDefinitionRegistry.customScalars(): Collection<ScalarTypeDefinition> {
     return scalars().filterKeys { !builtIn.contains(it) }.values
 }
