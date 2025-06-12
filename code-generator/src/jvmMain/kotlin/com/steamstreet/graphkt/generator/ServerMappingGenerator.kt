@@ -60,10 +60,18 @@ class ServerMappingGenerator(
                 else -> {
                     if (isEnum(baseFieldType)) {
                         add("%T(%L)", ClassName("kotlinx.serialization.json", "JsonPrimitive"), buildCodeBlock {
-                            if (fieldType is NonNullType) {
-                                add("%L().name", fieldName)
+                            if (directField) {
+                                if (fieldType is NonNullType) {
+                                    add("%L.name", fieldName)
+                                } else {
+                                    add("%L?.name", fieldName)
+                                }
                             } else {
-                                add("%L()?.name", fieldName)
+                                if (fieldType is NonNullType) {
+                                    add("%L().name", fieldName)
+                                } else {
+                                    add("%L()?.name", fieldName)
+                                }
                             }
                         })
                     } else if (isScalar(baseFieldType)) {
