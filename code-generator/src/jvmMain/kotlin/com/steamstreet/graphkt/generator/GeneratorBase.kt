@@ -123,13 +123,19 @@ open class GeneratorBase(
                     }
                     else -> {
                         // enum types DO NOT get a postfix and they always use the base package
-                        val schemaType = schema.getType(typeName).get()
-                        if (schemaType is EnumTypeDefinition) {
-                            simpleName = typeName?.name ?: ""
-                            typePackage = packageName
-                        } else {
-                            schema.scalars().values.find { it.name == typeName?.name }?.let {
-                                simpleName = typeName?.name ?: ""
+                        if (typeName != null) {
+                            val optionalType = schema.getType(typeName)
+                            if (optionalType.isPresent) {
+                                val schemaType = optionalType.get()
+                                if (schemaType is EnumTypeDefinition) {
+                                    simpleName = typeName.name
+                                    typePackage = packageName
+                                }
+                            }
+                            if (!optionalType.isPresent || optionalType.get() !is EnumTypeDefinition) {
+                                schema.scalars().values.find { it.name == typeName.name }?.let {
+                                    simpleName = typeName.name
+                                }
                             }
                         }
                     }

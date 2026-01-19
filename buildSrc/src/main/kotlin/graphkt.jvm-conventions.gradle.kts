@@ -1,17 +1,9 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     kotlin("jvm")
     kotlin("plugin.serialization")
     `maven-publish`
     id("org.jetbrains.dokka")
     signing
-}
-
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = freeCompilerArgs + "-Xcontext-receivers"
-    }
 }
 
 tasks.withType<Test> {
