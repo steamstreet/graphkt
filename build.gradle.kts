@@ -24,7 +24,7 @@ subprojects {
     afterEvaluate {
         gradle.taskGraph.whenReady {
             if (gradle.taskGraph.hasTask(":${project.name}:publishToMavenLocal")) {
-                tasks.matching { it.name in listOf("javadoc", "dokkaHtml", "dokkaJavadoc") }.configureEach {
+                tasks.matching { it.name in listOf("javadoc", "dokkaHtml", "dokkaJavadoc", "dokkaGeneratePublicationHtml") }.configureEach {
                     enabled = false
                 }
             }
