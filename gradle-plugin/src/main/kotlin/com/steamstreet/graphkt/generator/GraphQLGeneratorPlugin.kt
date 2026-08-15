@@ -15,12 +15,19 @@ class GraphQLGeneratorPlugin : Plugin<Project> {
             GraphQLCodeGeneratorTask::class.java
         )
 
-        target.afterEvaluate { _ ->
-            target.tasks.filter {
-                it.name.startsWith("compileKotlin")
-            }.forEach {
+        // Every Kotlin compilation must run after code generation. This has to cover more than the
+        // JVM-style "compileKotlin" task, because multiplatform projects also compile per-target
+        // ("compileKotlinLinuxX64", "compileTestKotlinJvm") and compile shared source sets as
+        // metadata ("compileCommonMainKotlinMetadata", "compileNativeMainKotlinMetadata").
+        // configureEach is lazy, so tasks are not realized just to attach the dependency.
+        target.tasks.configureEach {
+            if (KOTLIN_COMPILE_TASK.matches(it.name)) {
                 it.dependsOn(task)
             }
         }
+    }
+
+    private companion object {
+        val KOTLIN_COMPILE_TASK = Regex("compile\\w*Kotlin\\w*")
     }
 }

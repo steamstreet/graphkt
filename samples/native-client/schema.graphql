@@ -1,0 +1,66 @@
+schema {
+    query: Query
+}
+
+scalar ASampleScalar
+
+type Query {
+    aStr: String
+    aInt: Int
+    aBool: Boolean
+    aFloat: Float
+
+    aID: ID
+
+    aNonNull: String!
+
+    ListNullableStrings: [String]
+    ListNotNullStrings: [String!]
+    NonNullListNullableContent: [String]!
+    NonNullListNotNullContent: [String!]!
+
+    Another: Another
+    ListOfAnother: [Another!]
+
+    aScalar: ASampleScalar
+
+    someFunction(input: Int): [Another!]
+
+    aEnum: SomeEnum
+
+    someEnumFunction(input: SomeEnum!): String
+}
+
+enum SomeEnum {
+    SOME_VALUE
+    ANOTHER_VALUE
+}
+
+interface Common {
+    name: String
+}
+
+type Another implements Common {
+    name: String
+
+    anotherString: String!
+
+    doSomething(input: SomeInput!): Boolean
+
+    inputString(input: String): String
+    inputStringNonNull(input: String!): String
+
+    inputInt(input: Int): String
+    inputBoolean(input: Boolean!): String
+
+    inputList(input: [String]!): Boolean
+    inputListClass(input: [SomeInput]!): Boolean
+}
+
+input SomeInput {
+    value: String!
+
+    aScalar: ASampleScalar
+
+    anEnum: SomeEnum
+}

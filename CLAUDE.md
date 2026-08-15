@@ -70,13 +70,22 @@ GraphQL {
 }
 ```
 
+The plugin wires `generateGraphQLCode` ahead of every Kotlin compilation task (per-target compiles and KMP
+metadata compiles), so consumers only need to add `build/graphql/generated` as a source directory.
+
+Native (Kotlin/Native) consumers must set `generateServer = false`: the generated server code depends on the
+`server` module, which is JVM/JS only, and it is written to the same output directory as the client code.
+
 ## Key Technical Details
 
-- **Kotlin version**: 2.1.10
+- **Kotlin version**: 2.3.0
 - **Java toolchain**: 17
 - **Context receivers**: Enabled via `-Xcontext-receivers`
 - **Test framework**: JUnit 5
-- **Multiplatform targets**: JVM, JS, iOS (Arm64, X64, SimulatorArm64)
+- **Multiplatform targets**:
+  - `common-runtime`, `client`, `client-ktor`: JVM, JS, iOS (Arm64, X64, SimulatorArm64), macOS (X64, Arm64), Linux (X64, Arm64), Windows (mingwX64)
+  - `server`: JVM, JS
+  - Everything else: JVM only
 - **Published to**: Maven Central as `com.steamstreet:graphkt-*`
 
 ## Convention Plugins
