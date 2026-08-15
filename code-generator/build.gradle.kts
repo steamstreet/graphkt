@@ -22,8 +22,9 @@ kotlin {
         jvmTest {
             dependencies {
                 implementation(kotlin("test"))
-                implementation("org.jetbrains.kotlin:kotlin-compiler:2.1.21")
-                implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.1.21")
+                // Used to compile generated code in tests; must match the Kotlin version the runtime modules
+                // are built with, or the in-process compiler cannot read their metadata.
+                implementation("org.jetbrains.kotlin:kotlin-compiler-embeddable:2.3.0")
 
                 // Add dependencies on common-runtime and server modules
                 implementation(projects.commonRuntime)

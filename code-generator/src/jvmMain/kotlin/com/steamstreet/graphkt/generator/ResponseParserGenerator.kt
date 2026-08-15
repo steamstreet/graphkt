@@ -88,7 +88,7 @@ class ResponseParserGenerator(
         clientType.primaryConstructor(
             FunSpec.constructorBuilder()
                 .addParameter("_response", responseType)
-                .addParameter("element", jsonObjectType)
+                .addParameter("_element", jsonObjectType)
                 .build()
         )
             .addProperty(
@@ -98,8 +98,8 @@ class ResponseParserGenerator(
                     .build()
             )
             .addProperty(
-                PropertySpec.builder("element", jsonObjectType)
-                    .initializer("element")
+                PropertySpec.builder("_element", jsonObjectType)
+                    .initializer("_element")
                     .addModifiers(KModifier.PRIVATE)
                     .build()
             )
@@ -134,7 +134,7 @@ class ResponseParserGenerator(
             }
             getter(FunSpec.getterBuilder().apply {
                 addCode(CodeBlock.builder().apply {
-                    addStatement("return element[%S]!!.%T.content", "__typename", jsonPrimitiveFunction)
+                    addStatement("return _element[%S]!!.%T.content", "__typename", jsonPrimitiveFunction)
                 }.build())
             }.build())
         }.build())
@@ -143,7 +143,7 @@ class ResponseParserGenerator(
             addParameter("key", String::class)
 
             addCode(CodeBlock.builder().apply {
-                addStatement("return element.containsKey(key)")
+                addStatement("return _element.containsKey(key)")
             }.build())
 
             returns(Boolean::class)
@@ -158,7 +158,7 @@ class ResponseParserGenerator(
             }.getter(FunSpec.getterBuilder().apply {
                 addCode(CodeBlock.builder().apply {
                     addStatement("_response.throwIfError(%S)", field.name)
-                    addStatement("val result = element[%S]?.takeIf { it !is %T }?.let {", field.name, jsonNullType)
+                    addStatement("val result = _element[%S]?.takeIf { it !is %T }?.let {", field.name, jsonNullType)
                     indent()
 
                     val statementType = if (field.type is NonNullType) {
