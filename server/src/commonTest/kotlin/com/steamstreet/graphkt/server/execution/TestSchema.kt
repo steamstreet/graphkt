@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonPrimitive
 internal fun testSchema(): GraphQLSchemaDefinition = GraphQLSchemaDefinition(
     queryType = "Query",
     mutationType = "Mutation",
+    subscriptionType = "Subscription",
     directives = listOf(
         GraphQLDirectiveDefinition(
             name = "trace",
@@ -149,6 +150,22 @@ internal fun testSchema(): GraphQLSchemaDefinition = GraphQLSchemaDefinition(
                         ),
                     ),
                 ),
+            ),
+        ),
+        GraphQLObjectType(
+            name = "Subscription",
+            fields = listOf(
+                GraphQLFieldDefinition(
+                    "userChanged",
+                    GraphQLTypeRef.Named("User"),
+                    listOf(
+                        GraphQLInputValueDefinition(
+                            "id",
+                            GraphQLTypeRef.NonNull(GraphQLTypeRef.Named("ID")),
+                        ),
+                    ),
+                ),
+                GraphQLFieldDefinition("productChanged", GraphQLTypeRef.Named("Product")),
             ),
         ),
     ),

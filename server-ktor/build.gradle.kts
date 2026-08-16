@@ -4,6 +4,19 @@ plugins {
 
 kotlin {
     jvm()
+    js(IR) { browser() }
+
+    iosArm64()
+    iosX64()
+    iosSimulatorArm64()
+
+    macosX64()
+    macosArm64()
+
+    linuxX64()
+    linuxArm64()
+
+    mingwX64()
 
     explicitApi()
 
@@ -15,12 +28,6 @@ kotlin {
                 api(project(":common-runtime"))
                 api(project(":server"))
                 implementation(libs.ktor.server.core)
-            }
-        }
-
-        val jvmMain by getting {
-            dependencies {
-                implementation(libs.graphql)
             }
         }
 

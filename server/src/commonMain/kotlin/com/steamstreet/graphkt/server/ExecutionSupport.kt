@@ -7,7 +7,7 @@ import kotlin.coroutines.cancellation.CancellationException
 
 internal interface ExecutionSelectionState {
     val hasPreExecutionError: Boolean
-    val resolverFailures: List<ResolverFailure>
+    val resolverFailures: MutableList<ResolverFailure>
     suspend fun resolveWithDirectives(block: suspend () -> JsonElement): JsonElement
 }
 
@@ -25,9 +25,12 @@ internal data class ResolverFailure(
 
 internal class NonNullPropagationException : RuntimeException()
 
-internal fun RequestSelection.resolverFailures(): List<ResolverFailure> = buildList {
-    (this@resolverFailures as? ExecutionSelectionState)?.resolverFailures?.let(::addAll)
-    this@resolverFailures.children.forEach { child -> addAll(child.resolverFailures()) }
+internal fun RequestSelection.takeResolverFailures(): List<ResolverFailure> = buildList {
+    (this@takeResolverFailures as? ExecutionSelectionState)?.resolverFailures?.let { failures ->
+        addAll(failures)
+        failures.clear()
+    }
+    this@takeResolverFailures.children.forEach { child -> addAll(child.takeResolverFailures()) }
 }
 
 /** Resolves one field and applies its nullable boundary. */

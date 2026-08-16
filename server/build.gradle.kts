@@ -27,7 +27,7 @@ kotlin {
                 api(libs.kotlin.serialization.json)
 
                 api(project(":common-runtime"))
-                implementation(libs.kotlinx.coroutines.core)
+                api(libs.kotlinx.coroutines.core)
             }
         }
 
@@ -55,5 +55,23 @@ publishing {
                 description.set("Common code for all GraphKt server implementations")
             }
         }
+    }
+}
+
+val jvmTestTask = tasks.named<Test>("jvmTest")
+
+tasks.register<Test>("performanceBaseline") {
+    group = "verification"
+    description = "Records non-gating GraphQL runtime performance baselines"
+    dependsOn("jvmTestClasses")
+    testClassesDirs = jvmTestTask.get().testClassesDirs
+    classpath = jvmTestTask.get().classpath
+    filter {
+        includeTestsMatching("com.steamstreet.graphkt.server.execution.GraphQLPerformanceBaseline")
+    }
+    systemProperty("graphkt.performance.baseline", "true")
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
     }
 }

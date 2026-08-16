@@ -21,6 +21,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.utils.io.charsets.Charsets
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +32,7 @@ private val graphKtTransportJson: Json = Json {
     ignoreUnknownKeys = true
 }
 
-/** Installs GET and POST endpoints backed by the platform-neutral GraphQL execution engine. */
+/** Installs GET and POST endpoints backed by the common GraphQL execution engine. */
 public fun <Context> Route.graphQL(
     server: GraphQLServer<Context>,
     context: suspend GraphQLRequestScope.(ApplicationCall) -> Context,

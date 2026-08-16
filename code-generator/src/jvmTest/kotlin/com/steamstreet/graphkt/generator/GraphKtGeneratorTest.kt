@@ -244,6 +244,62 @@ class GraphKtGeneratorTest {
     }
 
     @Test
+    fun `generates typed subscription flows for clients and servers`(@TempDir tempDir: File) {
+        val schema = File(tempDir, "schema.graphql").apply {
+            writeText(
+                """
+                schema {
+                    query: Query
+                    subscription: Events
+                }
+
+                type Query {
+                    healthy: Boolean!
+                }
+
+                type Events {
+                    userChanged(id: ID!): User!
+                }
+
+                type User {
+                    id: ID!
+                    name: String!
+                }
+                """.trimIndent(),
+            )
+        }
+        val output = File(tempDir, "generated")
+
+        val result = GraphKtGenerator().generate(
+            GenerationRequest(
+                schemaFiles = listOf(schema),
+                packageName = "com.steamstreet.graphkt.generated",
+                features = GenerationFeatures(client = true, server = true),
+                outputs = GenerationOutputs(output),
+            ),
+        )
+
+        val query = File(output, "com/steamstreet/graphkt/generated/client/query.kt").readText()
+        assertTrue(query.contains("public fun GraphQLSubscriptionClient.subscription("), query)
+        assertTrue(query.contains("): Flow<Events>"), query)
+        assertTrue(query.contains("subscribeAndParse(name, json, ::EventsResponse)"), query)
+
+        val services = File(output, "com/steamstreet/graphkt/generated/server/services.kt").readText()
+        assertTrue(services.contains("public suspend fun userChanged(id: ID): Flow<User>"), services)
+
+        val mapping = File(output, "com/steamstreet/graphkt/generated/server/service-mapping.kt").readText()
+        assertTrue(mapping.contains("= userChanged(id).map { value ->"), mapping)
+        assertTrue(mapping.contains("GraphQLSubscriptionEventResolver"), mapping)
+        assertTrue(mapping.contains("public suspend fun Events.gqlSubscribe("), mapping)
+
+        val server = File(output, "com/steamstreet/graphkt/generated/server/server.kt").readText()
+        assertTrue(server.contains("subscription: ResolverFactory<Context, Events>? = null"), server)
+        assertTrue(server.contains("GraphQLSubscriptionRootResolverFactory"), server)
+        assertTrue(server.contains("resolver.gqlSubscribe(selection)"), server)
+        assertTrue(compileKotlinFiles(result.generatedFiles, tempDir), "Generated subscription sources must compile")
+    }
+
+    @Test
     fun `generates common server schema metadata with defaults and oneOf inputs`(@TempDir tempDir: File) {
         val schema = File(tempDir, "schema.graphql").apply {
             writeText(

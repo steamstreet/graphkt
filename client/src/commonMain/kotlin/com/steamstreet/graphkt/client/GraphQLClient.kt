@@ -2,6 +2,8 @@ package com.steamstreet.graphkt.client
 
 import com.steamstreet.graphkt.GraphQLError
 import com.steamstreet.graphkt.GraphQLPathSegment
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -47,22 +49,46 @@ public interface GraphQLClient {
         block: QueryWriter.() -> Unit
     ): T {
         val result = execute(name, json, block)
-        val resultElement = json.parseToJsonElement(result)
-        val errors = resultElement.jsonObject["errors"]?.jsonArray
-
-        val errorList = errors?.let {
-            json.decodeFromJsonElement(ListSerializer(GraphQLError.serializer()), it)
-        }
-        val response = DefaultGraphQLResponse("", errorList, errorList?.associateBy {
-            it.path?.joinToString(".") { segment ->
-                when (segment) {
-                    is GraphQLPathSegment.Field -> segment.name
-                    is GraphQLPathSegment.Index -> segment.index.toString()
-                }
-            } ?: ""
-        } ?: emptyMap())
-
-        val data = resultElement.jsonObject["data"]
-        return init(response, data as? JsonObject ?: JsonObject(emptyMap()))
+        return parseGraphQLResponse(result, json, init)
     }
+}
+
+/** A transport-neutral client that returns one response for each subscription event. */
+public interface GraphQLSubscriptionClient {
+    /** Returns a cold response stream for one subscription operation. */
+    public fun subscribe(name: String? = null, json: Json, block: QueryWriter.() -> Unit): Flow<String>
+
+    /** Returns a cold stream and parses each response envelope. */
+    public fun <T> subscribeAndParse(
+        name: String? = null,
+        json: Json,
+        init: (GraphQLResponse, JsonObject) -> T,
+        block: QueryWriter.() -> Unit,
+    ): Flow<T> = subscribe(name, json, block).map { result ->
+        parseGraphQLResponse(result, json, init)
+    }
+}
+
+private fun <T> parseGraphQLResponse(
+    result: String,
+    json: Json,
+    init: (GraphQLResponse, JsonObject) -> T,
+): T {
+    val resultElement = json.parseToJsonElement(result)
+    val errors = resultElement.jsonObject["errors"]?.jsonArray
+
+    val errorList = errors?.let {
+        json.decodeFromJsonElement(ListSerializer(GraphQLError.serializer()), it)
+    }
+    val response = DefaultGraphQLResponse("", errorList, errorList?.associateBy {
+        it.path?.joinToString(".") { segment ->
+            when (segment) {
+                is GraphQLPathSegment.Field -> segment.name
+                is GraphQLPathSegment.Index -> segment.index.toString()
+            }
+        } ?: ""
+    } ?: emptyMap())
+
+    val data = resultElement.jsonObject["data"]
+    return init(response, data as? JsonObject ?: JsonObject(emptyMap()))
 }

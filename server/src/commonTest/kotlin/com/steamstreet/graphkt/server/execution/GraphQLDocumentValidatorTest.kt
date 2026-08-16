@@ -288,6 +288,48 @@ class GraphQLDocumentValidatorTest {
         assertTrue(messages.any { "Directive '@authorize' is not repeatable" in it }, messages.toString())
         assertTrue(messages.any { "Required argument 'role' is missing on '@authorize'" in it }, messages.toString())
     }
+
+    @Test
+    fun acceptsOneSubscriptionRootFieldThroughAFragment() {
+        val document = parser.parse(
+            """
+            subscription UserChanges {
+                ...UserChangeField
+            }
+            fragment UserChangeField on Subscription {
+                changed: userChanged(id: "1") { id name }
+            }
+            """.trimIndent(),
+        )
+
+        val result = GraphQLDocumentValidator(testSchema()).validate(document, "UserChanges")
+
+        assertTrue(result.isValid, result.messages().toString())
+    }
+
+    @Test
+    fun rejectsInvalidSubscriptionRootSelections() {
+        val document = parser.parse(
+            """
+            subscription MultipleFields {
+                userChanged(id: "1") { id }
+                productChanged { id }
+            }
+            subscription ConditionalField {
+                userChanged(id: "1") @include(if: true) { id }
+            }
+            subscription IntrospectionField {
+                __typename
+            }
+            """.trimIndent(),
+        )
+
+        val messages = GraphQLDocumentValidator(testSchema()).validate(document, "MultipleFields").messages()
+
+        assertTrue(messages.any { "exactly one root field" in it }, messages.toString())
+        assertTrue(messages.any { "must not use '@include'" in it }, messages.toString())
+        assertTrue(messages.any { "must not be an introspection field" in it }, messages.toString())
+    }
 }
 
 private fun DocumentValidationResult.messages(): List<String> = errors.map { it.message.orEmpty() }

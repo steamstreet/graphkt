@@ -21,6 +21,10 @@ internal class ServerExecutionAdapterGenerator(
     private val resolverFactoryType = ClassName("com.steamstreet.graphkt.server", "ResolverFactory")
     private val rootFieldResolverType = ClassName("com.steamstreet.graphkt.server", "GraphQLRootFieldResolver")
     private val rootResolverFactoryType = ClassName("com.steamstreet.graphkt.server", "GraphQLRootResolverFactory")
+    private val subscriptionRootFieldResolverType =
+        ClassName("com.steamstreet.graphkt.server", "GraphQLSubscriptionRootFieldResolver")
+    private val subscriptionRootResolverFactoryType =
+        ClassName("com.steamstreet.graphkt.server", "GraphQLSubscriptionRootResolverFactory")
     private val serverType = ClassName("com.steamstreet.graphkt.server", "GraphQLServer")
     private val errorMapperType = ClassName("com.steamstreet.graphkt.server", "GraphQLExecutionErrorMapper")
     private val executionPolicyType = ClassName("com.steamstreet.graphkt.server", "GraphQLExecutionPolicy")
@@ -32,6 +36,7 @@ internal class ServerExecutionAdapterGenerator(
         val contextType = TypeVariableName("Context")
         val queryType = ClassName(serverPackage, root(OperationKind.QUERY) ?: "Query")
         val mutationType = root(OperationKind.MUTATION)?.let { ClassName(serverPackage, it) }
+        val subscriptionType = root(OperationKind.SUBSCRIPTION)?.let { ClassName(serverPackage, it) }
 
         val function = FunSpec.builder("graphKtServer")
             .addTypeVariable(contextType)
@@ -41,6 +46,14 @@ internal class ServerExecutionAdapterGenerator(
                     addParameter(
                         ParameterSpec.builder(
                             "mutation",
+                            resolverFactoryType.parameterizedBy(contextType, type).copy(nullable = true),
+                        ).defaultValue("null").build(),
+                    )
+                }
+                subscriptionType?.let { type ->
+                    addParameter(
+                        ParameterSpec.builder(
+                            "subscription",
                             resolverFactoryType.parameterizedBy(contextType, type).copy(nullable = true),
                         ).defaultValue("null").build(),
                     )
@@ -76,7 +89,7 @@ internal class ServerExecutionAdapterGenerator(
                     .build(),
             )
             .returns(serverType.parameterizedBy(contextType))
-            .addCode(serverInitializer(mutationType != null))
+            .addCode(serverInitializer(mutationType != null, subscriptionType != null))
             .build()
 
         FileSpec.builder(serverPackage, "server")
@@ -86,7 +99,7 @@ internal class ServerExecutionAdapterGenerator(
             .writeTo(outputDir)
     }
 
-    private fun serverInitializer(hasMutation: Boolean): CodeBlock = CodeBlock.builder()
+    private fun serverInitializer(hasMutation: Boolean, hasSubscription: Boolean): CodeBlock = CodeBlock.builder()
         .add("return %T(\n", serverType)
         .indent()
         .add("schema = graphKtSchema,\n")
@@ -104,6 +117,18 @@ internal class ServerExecutionAdapterGenerator(
                 indent()
                 add("val resolver = factory.create(context)\n")
                 add("%T { selection -> resolver.gqlSelectChild(selection) }\n", rootFieldResolverType)
+                unindent()
+                add("}\n")
+                unindent()
+                add("},\n")
+            }
+            if (hasSubscription) {
+                add("subscription = subscription?.let { factory ->\n")
+                indent()
+                add("%T { context ->\n", subscriptionRootResolverFactoryType)
+                indent()
+                add("val resolver = factory.create(context)\n")
+                add("%T { selection -> resolver.gqlSubscribe(selection) }\n", subscriptionRootFieldResolverType)
                 unindent()
                 add("}\n")
                 unindent()

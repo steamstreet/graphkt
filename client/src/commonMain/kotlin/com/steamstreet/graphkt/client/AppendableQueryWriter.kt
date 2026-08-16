@@ -111,9 +111,10 @@ public class AppendableQueryWriter(
     override fun writeTo(target: Appendable) {
         target.append(type)
         target.append(' ')
-        if (variables.isNotEmpty()) {
+        if (name != null || variables.isNotEmpty()) {
             target.append(name ?: "Q${Random.nextInt(0, Int.MAX_VALUE)}")
-
+        }
+        if (variables.isNotEmpty()) {
             target.append('(')
             target.append(variables.entries.joinToString(",") {
                 "\$${it.key}: ${it.value.type}"

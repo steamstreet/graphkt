@@ -7,12 +7,14 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.MemberName
 import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.steamstreet.graphkt.generator.schema.EnumType
 import com.steamstreet.graphkt.generator.schema.Field
 import com.steamstreet.graphkt.generator.schema.InputValue
 import com.steamstreet.graphkt.generator.schema.InterfaceType
 import com.steamstreet.graphkt.generator.schema.KotlinTypeMapper
 import com.steamstreet.graphkt.generator.schema.ObjectType
+import com.steamstreet.graphkt.generator.schema.OperationKind
 import com.steamstreet.graphkt.generator.schema.ScalarType
 import com.steamstreet.graphkt.generator.schema.SchemaModel
 import com.steamstreet.graphkt.generator.schema.SchemaRelationships
@@ -39,6 +41,13 @@ internal class ServerMappingGenerator(
     private val relationships = SchemaRelationships(schema)
     private val typesByName = schema.types.associateBy { it.name }
     private val jsonParserType = ClassName(packageName, "json")
+    private val flowType = ClassName("kotlinx.coroutines.flow", "Flow")
+    private val flowMap = MemberName("kotlinx.coroutines.flow", "map")
+    private val subscriptionEventResolverType =
+        ClassName("com.steamstreet.graphkt.server", "GraphQLSubscriptionEventResolver")
+    private val subscriptionRootName = schema.operations
+        .firstOrNull { operation -> operation.kind == OperationKind.SUBSCRIPTION }
+        ?.typeName
 
     fun execute() {
         file.suppress(
@@ -50,7 +59,13 @@ internal class ServerMappingGenerator(
         )
         schema.types
             .filter { it is ObjectType || it is InterfaceType || it is UnionType }
-            .forEach(::addSelectionMapping)
+            .forEach { type ->
+                if (type is ObjectType && type.name == subscriptionRootName) {
+                    addSubscriptionMapping(type)
+                } else {
+                    addSelectionMapping(type)
+                }
+            }
 
         file.build().writeTo(outputDir)
     }
@@ -61,6 +76,88 @@ internal class ServerMappingGenerator(
         fields(type).forEach { field -> addFieldMapping(resolverType, field) }
         addSelectChild(type, resolverType)
         addSelect(resolverType)
+    }
+
+    private fun addSubscriptionMapping(type: ObjectType) {
+        val resolverType = ClassName(serverPackage, type.name)
+        type.fields.forEach { field -> addSubscriptionFieldMapping(resolverType, field) }
+        addSubscribeChild(type, resolverType)
+    }
+
+    private fun addSubscriptionFieldMapping(receiver: ClassName, field: Field) {
+        val resolverCall = CodeBlock.builder()
+            .add("%N(", field.name)
+            .apply {
+                field.arguments.forEachIndexed { index, argument ->
+                    if (index > 0) add(", ")
+                    add("%N", argument.name)
+                }
+            }
+            .add(")")
+            .build()
+
+        file.addFunction(
+            FunSpec.builder("gql_subscribe_${field.name}")
+                .receiver(receiver)
+                .addModifiers(KModifier.SUSPEND)
+                .returns(flowType.parameterizedBy(subscriptionEventResolverType))
+                .addParameter("field", requestSelectionType)
+                .apply {
+                    field.arguments.forEach { argument ->
+                        addParameter(ParameterSpec.builder(argument.name, typeMapper.map(argument.type)).build())
+                    }
+                }
+                .addCode(
+                    CodeBlock.builder()
+                        .add("return %L.%M { value ->\n", resolverCall, flowMap)
+                        .indent()
+                        .add("%T {\n", subscriptionEventResolverType)
+                        .indent()
+                        .add(
+                            "field.%M(nonNull = %L) {\n",
+                            resolveFieldValue,
+                            field.type is TypeRef.NonNull,
+                        )
+                        .indent()
+                        .add("%L\n", encode(field.type, CodeBlock.of("value"), CodeBlock.of("field")))
+                        .unindent()
+                        .add("}\n")
+                        .unindent()
+                        .add("}\n")
+                        .unindent()
+                        .add("}\n")
+                        .build(),
+                )
+                .build(),
+        )
+    }
+
+    private fun addSubscribeChild(type: ObjectType, receiver: ClassName) {
+        file.addFunction(
+            FunSpec.builder("gqlSubscribe")
+                .receiver(receiver)
+                .addParameter("child", requestSelectionType)
+                .addModifiers(KModifier.SUSPEND)
+                .returns(flowType.parameterizedBy(subscriptionEventResolverType))
+                .beginControlFlow("return when (child.name)")
+                .apply {
+                    type.fields.forEach { field ->
+                        addStatement(
+                            "%S -> %N(child%L)",
+                            field.name,
+                            "gql_subscribe_${field.name}",
+                            decodedArguments(field.arguments),
+                        )
+                    }
+                    addStatement(
+                        "else -> throw %T(%P)",
+                        IllegalArgumentException::class,
+                        "Unknown subscription field '${'$'}{child.name}' on ${type.name}",
+                    )
+                }
+                .endControlFlow()
+                .build(),
+        )
     }
 
     private fun addFieldMapping(receiver: ClassName, field: Field) {

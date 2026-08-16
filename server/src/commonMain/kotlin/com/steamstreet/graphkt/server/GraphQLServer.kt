@@ -16,6 +16,9 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -68,6 +71,7 @@ public class GraphQLServer<Context>(
     private val schema: GraphQLSchemaDefinition,
     private val query: GraphQLRootResolverFactory<Context>,
     private val mutation: GraphQLRootResolverFactory<Context>? = null,
+    private val subscription: GraphQLSubscriptionRootResolverFactory<Context>? = null,
     private val limits: GraphQLDocumentLimits = GraphQLDocumentLimits(),
     private val executionPolicy: GraphQLExecutionPolicy = GraphQLExecutionPolicy(),
     private val directiveHandlers: Map<String, GraphQLDirectiveHandler<Context>> = emptyMap(),
@@ -93,6 +97,17 @@ public class GraphQLServer<Context>(
         request: GraphQLRequest,
         contextFactory: suspend GraphQLRequestScope.() -> Context,
     ): GraphQLResponseEnvelope = executeRequest(request, contextFactory)
+
+    /** Returns a cold response stream for one subscription operation. */
+    public fun subscribe(request: GraphQLRequest, context: Context): Flow<GraphQLResponseEnvelope> {
+        return subscribeRequest(request, contextFactory = { context })
+    }
+
+    /** Creates request-scoped context when the returned subscription stream starts collection. */
+    public fun subscribe(
+        request: GraphQLRequest,
+        contextFactory: suspend GraphQLRequestScope.() -> Context,
+    ): Flow<GraphQLResponseEnvelope> = subscribeRequest(request, contextFactory)
 
     /** Executes only query operations and rejects mutations and subscriptions. */
     public suspend fun executeQuery(request: GraphQLRequest, context: Context): GraphQLResponseEnvelope {
@@ -127,10 +142,15 @@ public class GraphQLServer<Context>(
         if (requiredOperationType != null && operationType != requiredOperationType) {
             throw GraphQLOperationNotAllowedException(operationType)
         }
+        if (operationType == GraphQLOperationType.SUBSCRIPTION) {
+            return GraphQLResponseEnvelope(
+                errors = listOf(GraphQLError("Subscription operations require the streaming subscription API")),
+            )
+        }
         val executorFactory = when (prepared.operation.type) {
             com.steamstreet.graphkt.server.execution.OperationType.QUERY -> query
             com.steamstreet.graphkt.server.execution.OperationType.MUTATION -> mutation
-            com.steamstreet.graphkt.server.execution.OperationType.SUBSCRIPTION -> null
+            com.steamstreet.graphkt.server.execution.OperationType.SUBSCRIPTION -> error("Subscription execution uses subscribe")
         }
         if (executorFactory == null) {
             return GraphQLResponseEnvelope(
@@ -171,7 +191,7 @@ public class GraphQLServer<Context>(
                 errors += errorMapper.map(context, failure, emptyList())
                 null
             }
-            selection.resolverFailures().forEach { failure ->
+            selection.takeResolverFailures().forEach { failure ->
                 errors += errorMapper.map(context, failure.cause, failure.path)
             }
 
@@ -180,6 +200,91 @@ public class GraphQLServer<Context>(
                 errors = errors.takeIf { it.isNotEmpty() },
                 kind = GraphQLResponseKind.EXECUTION_RESULT,
             )
+        }
+    }
+
+    private fun subscribeRequest(
+        request: GraphQLRequest,
+        contextFactory: suspend GraphQLRequestScope.() -> Context,
+    ): Flow<GraphQLResponseEnvelope> = flow {
+        val preparation = GraphQLRequestPreparer(schema, limits).prepare(request)
+        val prepared = preparation.operation
+        if (prepared == null) {
+            emit(
+                GraphQLResponseEnvelope(
+                    errors = preparation.errors,
+                    kind = when (preparation.failureKind) {
+                        RequestPreparationFailureKind.DOCUMENT -> GraphQLResponseKind.DOCUMENT_ERROR
+                        RequestPreparationFailureKind.REQUEST, null -> GraphQLResponseKind.REQUEST_ERROR
+                    },
+                ),
+            )
+            return@flow
+        }
+
+        val operationType = prepared.operation.type.toPublicType()
+        if (operationType != GraphQLOperationType.SUBSCRIPTION) {
+            throw GraphQLOperationNotAllowedException(operationType)
+        }
+        val executorFactory = subscription
+        if (executorFactory == null) {
+            emit(GraphQLResponseEnvelope(errors = listOf(GraphQLError("The requested operation type is not configured"))))
+            return@flow
+        }
+
+        withGraphQLRequestScope { requestScope ->
+            val context = requestScope.contextFactory()
+            val preparationErrors = mutableListOf<GraphQLError>()
+            val selection = buildRequestSelection(
+                schema = schema,
+                prepared = prepared,
+                onInputErrors = preparationErrors::addAll,
+                directiveExecutor = FieldDirectiveExecutor { field, block ->
+                    executeDirectiveHandlers(context, field, directiveHandlers, block)
+                },
+            )
+            if (preparationErrors.isNotEmpty()) {
+                emit(GraphQLResponseEnvelope(errors = preparationErrors))
+                return@withGraphQLRequestScope
+            }
+
+            val rootSelection = selection.children.single()
+            val source = try {
+                executorFactory.create(context).subscribe(rootSelection)
+            } catch (failure: CancellationException) {
+                throw failure
+            } catch (failure: Exception) {
+                emit(
+                    GraphQLResponseEnvelope(
+                        errors = listOf(errorMapper.map(context, failure, rootSelection.path)),
+                    ),
+                )
+                return@withGraphQLRequestScope
+            }
+
+            source.collect { event ->
+                val errors = mutableListOf<GraphQLError>()
+                val data = try {
+                    JsonObject(mapOf(rootSelection.responseName to event.resolve()))
+                } catch (failure: NonNullPropagationException) {
+                    null
+                } catch (failure: CancellationException) {
+                    throw failure
+                } catch (failure: Exception) {
+                    errors += errorMapper.map(context, failure, rootSelection.path)
+                    null
+                }
+                selection.takeResolverFailures().forEach { failure ->
+                    errors += errorMapper.map(context, failure.cause, failure.path)
+                }
+                emit(
+                    GraphQLResponseEnvelope(
+                        data = data,
+                        errors = errors.takeIf { it.isNotEmpty() },
+                        kind = GraphQLResponseKind.EXECUTION_RESULT,
+                    ),
+                )
+            }
         }
     }
 }

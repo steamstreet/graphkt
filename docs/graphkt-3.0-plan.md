@@ -51,6 +51,14 @@ Completed work:
 - The common server runs independent query-root fields concurrently.
 - `GraphQLExecutionPolicy` sets a finite query parallelism limit of 16 by default.
 - The common server runs mutation-root fields serially in document order.
+- The common server returns a cold response `Flow` for each subscription operation.
+- One request scope, context, and resolver tree serve the full subscription flow.
+- Generated subscription resolver fields return typed source flows.
+- Generated subscription clients parse one typed result for each response event.
+- Subscription validation requires one root response key and rejects conditional root selections.
+- Subscription cancellation stops the source flow and releases request resources.
+- The direct client supports queries, mutations, and subscriptions on all core runtime targets.
+- The Ktor server route extension compiles for JVM, JavaScript, and the supported Native targets.
 - One request-scoped root resolver serves all fields in an operation.
 - Concurrent resolver errors retain GraphQL response order.
 - Each valid operation owns a `GraphQLRequestScope`.
@@ -59,6 +67,10 @@ Completed work:
 - The request scope releases resources in reverse registration order.
 - Resource cleanup runs after successful execution, execution failure, context failure, or cancellation.
 - Ktor and Lambda context factories receive the common request scope.
+- Deterministic common fuzz tests exercise 2,000 generated documents and 10 adversarial documents.
+- The fuzz suite uses the same pseudo-random sequence on JVM, JavaScript, and Native targets.
+- The `performanceBaseline` task records repeatable JVM parsing, validation, execution, batching, and response-encoding measurements.
+- The initial runtime baseline uses macOS AArch64 and JDK 17.0.10.
 - JavaScript, macOS, and iOS Simulator run the common conformance tests.
 - Linux Arm64 and Windows MinGW compile the common validation and coercion code.
 - Generator failures provide structured diagnostics with source locations.
@@ -75,8 +87,6 @@ Completed work:
 
 Remaining work:
 
-- Add fuzz tests and performance baselines.
-- Decide the subscription scope and transport target support.
 - Write the migration guide, Native samples, API reference, and release notes.
 
 ## 1. Purpose
@@ -111,6 +121,9 @@ The following decisions define the 3.0 architecture:
 - The parser applies finite document, token, and syntax-nesting limits.
 - Nullable client arguments use `OptionalInput` when omission changes behavior.
 - Server fields use suspend functions for one consistent resolver contract.
+- Subscription root fields return `Flow<T>` from suspend resolver functions.
+- `GraphQLServer.subscribe` returns a cold `Flow<GraphQLResponseEnvelope>`.
+- GraphKt 3.0 does not select a WebSocket or SSE subscription protocol.
 
 ## 3. Goals
 
@@ -140,7 +153,7 @@ The following work is outside the initial 3.0.0 scope:
 - GraphKt does not preserve binary compatibility with GraphKt 2.x.
 - GraphKt does not expose internal schema or execution types without a documented extension requirement.
 
-Subscriptions remain an open scope decision. Section 15 records this decision.
+Remote subscription protocols remain outside the initial 3.0.0 scope. Section 15 records this decision.
 
 ## 5. Proposed module structure
 
@@ -153,6 +166,7 @@ graphkt-server            common resolver contracts and server execution
 graphkt-client-ktor       Ktor client transport for supported targets
 graphkt-server-ktor       Ktor server transport for supported targets
 graphkt-client-fetch      Optional browser transport
+graphkt-client-direct     Common in-process transport
 graphkt-server-lambda     Optional platform adapter
 graphkt-testing           Common test utilities for generated schemas and resolvers
 ```
@@ -471,6 +485,18 @@ Resolver wrappers can allocate per selected object. These wrappers must contain 
 
 Benchmarks will measure parser cost, validation cost, resolver allocation, batching, and response encoding. Performance gates will use recorded 2.x and 3.0 baselines.
 
+### 11.5 Subscriptions
+
+The common server uses `Flow` for subscription source streams and response streams. Collection starts request preparation for the flow.
+
+The server creates one request scope, context, and resolver tree for the full flow. Each source event produces one independent response envelope.
+
+Resolver errors become safe GraphQL errors for that event. A source-flow failure stops the response flow with the same internal failure.
+
+Collector cancellation stops the source flow. Then the request scope releases its loaders and registered resources.
+
+The validator requires exactly one subscription root response key. It rejects root introspection and root `@skip` or `@include` directives.
+
 ## 12. Client architecture
 
 The client runtime will remain in `commonMain`. Transport adapters will implement one common request contract.
@@ -480,6 +506,10 @@ interface GraphQLTransport {
     suspend fun execute(request: GraphQLRequest): GraphQLResponseEnvelope
 }
 ```
+
+`GraphQLSubscriptionClient` defines a separate streaming contract. Generated subscription functions return a typed `Flow` through this contract.
+
+The direct client implements both contracts on every core runtime target. The Ktor and fetch clients support one-shot HTTP operations only.
 
 The request will contain `query`, `operationName`, `variables`, and optional extensions. JSON envelopes will use `application/json` by default.
 
@@ -555,6 +585,10 @@ The suite will include malformed documents, deep documents, fragment cycles, ali
 
 Public responses must not contain stack traces, local paths, class names, or internal exception text.
 
+The deterministic fuzz suite generates arbitrary documents and mutations of valid documents. Fixed seeds produce the same cases on each runtime.
+
+Adversarial fixtures exercise byte, token, syntax-nesting, selection, alias, and fragment limits. Unexpected runtime errors fail the suite.
+
 ### 14.4 Platform matrix
 
 The release pipeline will compile these target families:
@@ -574,15 +608,27 @@ Gradle TestKit will cover source-set wiring, task caching, changed configuration
 
 The root build will run all applicable unit and integration suites. A successful root build must not hide KMP test tasks.
 
+### 14.6 Performance baselines
+
+The opt-in `:server:performanceBaseline` task measures parsing, validation, execution, request batching, and response encoding on the JVM. The normal `check` task does not run timing measurements.
+
+The baseline document records the host, JDK, workloads, median time, p95 time, and throughput. Initial results are in `docs/performance-baseline.md`.
+
+Timing results do not fail the build. A release comparison requires repeated measurements on the same host and JDK.
+
 ## 15. Open decisions
 
-The project must resolve these decisions before the specified milestones. `GraphQLDirectiveHandler` is the public extension API for field directives.
+GraphKt 3.0 includes common subscription execution and typed generated flows. It does not include a bundled WebSocket or SSE protocol.
+
+The core, Ktor client, Ktor server, and direct client use the configured JVM, JavaScript, Apple, Linux, and MinGW targets.
+
+The browser fetch adapter remains JavaScript-only. The Lambda adapter remains JVM-only.
+
+The project must resolve this decision before the specified milestone. `GraphQLDirectiveHandler` is the public extension API for field directives.
 
 | Decision | Deadline |
 |---|---|
-| Include subscriptions in 3.0.0 or defer them | Milestone 2 |
 | Select initial execution-limit defaults | Milestone 5 |
-| Define supported Native targets for each transport | Milestone 5 |
 
 ## 16. Delivery milestones
 
@@ -637,6 +683,8 @@ Deliverables:
 - Concurrent query execution
 - Serial mutation-root execution
 - Request-scoped batching
+- Subscription source and response flows
+- Subscription cancellation and cleanup
 
 Exit gate: End-to-end fixtures produce equal response envelopes on supported runtime hosts.
 
@@ -647,6 +695,7 @@ Deliverables:
 - Ktor client transport
 - Ktor server transport for supported targets
 - Direct in-process transport
+- Common Ktor server route API
 - Security limits
 - Fuzz tests
 - Performance benchmarks

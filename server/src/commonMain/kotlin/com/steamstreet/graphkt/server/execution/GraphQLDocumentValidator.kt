@@ -115,8 +115,56 @@ internal class GraphQLDocumentValidator(
 
         validateDirectives(operation.directives, operation.type.directiveLocation(), errors)
         validateVariableDefinitions(operation.variables, errors)
+        if (operation.type == OperationType.SUBSCRIPTION) {
+            validateSubscriptionRootFields(operation, fragments, errors)
+        }
         GraphQLFieldMergingValidator(schema, fragments).validate(root.name, operation.selections, errors)
         validateSelectionSet(root.name, operation.selections, fragments, errors)
+    }
+
+    private fun validateSubscriptionRootFields(
+        operation: OperationDefinition,
+        fragments: Map<String, FragmentDefinition>,
+        errors: MutableList<GraphQLError>,
+    ) {
+        val rootFields = linkedMapOf<String, FieldSelection>()
+        val visitedFragments = mutableSetOf<String>()
+
+        fun collect(selections: List<Selection>) {
+            selections.forEach { selection ->
+                val directives = when (selection) {
+                    is FieldSelection -> selection.directives
+                    is FragmentSpread -> selection.directives
+                    is InlineFragment -> selection.directives
+                }
+                directives
+                    .filter { directive -> directive.name == "skip" || directive.name == "include" }
+                    .forEach { directive ->
+                        errors += error(
+                            "Subscription root selections must not use '@${directive.name}'",
+                            directive.location,
+                        )
+                    }
+
+                when (selection) {
+                    is FieldSelection -> if (selection.responseName !in rootFields) {
+                        rootFields[selection.responseName] = selection
+                    }
+                    is FragmentSpread -> if (visitedFragments.add(selection.name)) {
+                        fragments[selection.name]?.let { fragment -> collect(fragment.selections) }
+                    }
+
+                    is InlineFragment -> collect(selection.selections)
+                }
+            }
+        }
+
+        collect(operation.selections)
+        if (rootFields.size != 1) {
+            errors += error("A subscription must select exactly one root field", operation.location)
+        } else if (rootFields.values.single().name.startsWith("__")) {
+            errors += error("A subscription root field must not be an introspection field", operation.location)
+        }
     }
 
     private fun validateVariableDefinitions(

@@ -18,6 +18,7 @@ import com.steamstreet.graphkt.generator.schema.InputValue
 import com.steamstreet.graphkt.generator.schema.InterfaceType
 import com.steamstreet.graphkt.generator.schema.KotlinTypeMapper
 import com.steamstreet.graphkt.generator.schema.ObjectType
+import com.steamstreet.graphkt.generator.schema.OperationKind
 import com.steamstreet.graphkt.generator.schema.OperationRoot
 import com.steamstreet.graphkt.generator.schema.ScalarType
 import com.steamstreet.graphkt.generator.schema.SchemaModel
@@ -282,14 +283,27 @@ internal class QueryGenerator(
 
     private fun addOperation(operation: OperationRoot) {
         val operationName = operation.kind.name.lowercase()
+        val isSubscription = operation.kind == OperationKind.SUBSCRIPTION
         val rootType = typesByName[operation.typeName] as? ObjectType
             ?: error("Operation root is not an object type: ${operation.typeName}")
+        val responseType = ClassName(clientPackage, rootType.name)
 
         file.addFunction(
             FunSpec.builder(operationName)
-                .receiver(ClassName("com.steamstreet.graphkt.client", "GraphQLClient"))
-                .returns(ClassName(clientPackage, rootType.name))
-                .addModifiers(KModifier.SUSPEND)
+                .receiver(
+                    ClassName(
+                        "com.steamstreet.graphkt.client",
+                        if (isSubscription) "GraphQLSubscriptionClient" else "GraphQLClient",
+                    ),
+                )
+                .returns(
+                    if (isSubscription) {
+                        ClassName("kotlinx.coroutines.flow", "Flow").parameterizedBy(responseType)
+                    } else {
+                        responseType
+                    },
+                )
+                .apply { if (!isSubscription) addModifiers(KModifier.SUSPEND) }
                 .addParameter(
                     ParameterSpec.builder("name", ClassName("kotlin", "String").copy(nullable = true))
                         .defaultValue("null")
@@ -303,7 +317,8 @@ internal class QueryGenerator(
                     ),
                 )
                 .beginControlFlow(
-                    "val result = executeAndParse(name, %T, ::${rootType.name}Response)",
+                    "val result = %L(name, %T, ::${rootType.name}Response)",
+                    if (isSubscription) "subscribeAndParse" else "executeAndParse",
                     ClassName(packageName, "json"),
                 )
                 .addStatement("this.type = %S", operationName)

@@ -29,6 +29,7 @@ kotlin {
         commonMain {
             dependencies {
                 api(libs.kotlin.serialization.json)
+                api(libs.kotlinx.coroutines.core)
 
                 api(project(":common-runtime"))
             }

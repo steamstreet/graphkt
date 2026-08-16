@@ -2,10 +2,17 @@ package com.steamstreet.graphkt.server
 
 import com.steamstreet.graphkt.GraphQLPathSegment
 import com.steamstreet.graphkt.GraphQLRequest
+import com.steamstreet.graphkt.GraphQLResponseKind
 import com.steamstreet.graphkt.server.execution.testSchema
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -550,6 +557,164 @@ class GraphQLServerExecutionTest {
         assertEquals(listOf("last", "failing", "first"), events)
         assertEquals("One or more GraphQL request resources could not be released", failure.message)
         assertEquals(1, failure.failures.size)
+    }
+
+    @Test
+    fun `streams subscription events through one context and resolver tree`() = runTest {
+        var contextCalls = 0
+        var resolverFactoryCalls = 0
+        var released = false
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<String> { _, _ -> JsonNull },
+            subscription = GraphQLSubscriptionRootResolverFactory { context: String ->
+                resolverFactoryCalls += 1
+                GraphQLSubscriptionRootFieldResolver { selection ->
+                    assertEquals("request", context)
+                    assertEquals("userChanged", selection.name)
+                    assertEquals("changed", selection.responseName)
+                    flowOf("Ada", "Grace").map { name ->
+                        GraphQLSubscriptionEventResolver {
+                            selection.resolveFieldValue(nonNull = false) {
+                                selectUser(selection, name)
+                            }
+                        }
+                    }
+                }
+            },
+        )
+
+        val responses = server.subscribe(
+            GraphQLRequest("subscription { changed: userChanged(id: \"1\") { id name } }"),
+        ) {
+            contextCalls += 1
+            onClose { released = true }
+            "request"
+        }.toList()
+
+        assertEquals(1, contextCalls)
+        assertEquals(1, resolverFactoryCalls)
+        assertTrue(released)
+        assertEquals(listOf("Ada", "Grace"), responses.map { response ->
+            val changed = response.data?.get("changed") as JsonObject
+            changed.getValue("name").jsonPrimitive.content
+        })
+        assertTrue(responses.all { response -> response.kind == GraphQLResponseKind.EXECUTION_RESULT })
+    }
+
+    @Test
+    fun `keeps subscription event errors isolated`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, _ -> JsonNull },
+            subscription = GraphQLSubscriptionRootResolverFactory<Unit> {
+                GraphQLSubscriptionRootFieldResolver { selection ->
+                    flowOf(true, false).map { fail ->
+                        GraphQLSubscriptionEventResolver {
+                            selection.resolveFieldValue(nonNull = false) {
+                                selectUser(
+                                    selection,
+                                    nameFailure = if (fail) IllegalStateException("private detail") else null,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+        )
+
+        val responses = server.subscribe(
+            GraphQLRequest("subscription { userChanged(id: \"1\") { name } }"),
+            Unit,
+        ).toList()
+
+        assertEquals(JsonObject(mapOf("userChanged" to JsonNull)), responses[0].data)
+        assertEquals("Internal Server Error", responses[0].errors?.single()?.message)
+        assertEquals(
+            listOf(GraphQLPathSegment.Field("userChanged"), GraphQLPathSegment.Field("name")),
+            responses[0].errors?.single()?.path,
+        )
+        assertNull(responses[1].errors)
+        assertEquals("Ada", ((responses[1].data?.get("userChanged") as JsonObject)["name"] as JsonPrimitive).content)
+    }
+
+    @Test
+    fun `cancels the source and releases resources when collection stops`() = runTest {
+        var sourceCancelled = false
+        var released = false
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, _ -> JsonNull },
+            subscription = GraphQLSubscriptionRootResolverFactory<Unit> {
+                GraphQLSubscriptionRootFieldResolver { selection ->
+                    flow {
+                        try {
+                            emit(
+                                GraphQLSubscriptionEventResolver {
+                                    selection.resolveFieldValue(nonNull = false) { selectUser(selection) }
+                                },
+                            )
+                            awaitCancellation()
+                        } finally {
+                            sourceCancelled = true
+                        }
+                    }
+                }
+            },
+        )
+
+        server.subscribe(
+            GraphQLRequest("subscription { userChanged(id: \"1\") { id } }"),
+        ) {
+            onClose { released = true }
+            Unit
+        }.take(1).toList()
+
+        assertTrue(sourceCancelled)
+        assertTrue(released)
+    }
+
+    @Test
+    fun `rejects non-subscription streaming before context construction`() = runTest {
+        var contextCalls = 0
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, _ -> JsonNull },
+        )
+
+        val failure = assertFailsWith<GraphQLOperationNotAllowedException> {
+            server.subscribe(GraphQLRequest("{ node(id: \"1\") { id } }")) {
+                contextCalls += 1
+                Unit
+            }.toList()
+        }
+
+        assertEquals(GraphQLOperationType.QUERY, failure.operationType)
+        assertEquals(0, contextCalls)
+    }
+
+    @Test
+    fun `maps subscription source creation failures without exposing details`() = runTest {
+        var released = false
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, _ -> JsonNull },
+            subscription = GraphQLSubscriptionRootResolverFactory<Unit> {
+                error("private source detail")
+            },
+        )
+
+        val response = server.subscribe(
+            GraphQLRequest("subscription { userChanged(id: \"1\") { id } }"),
+        ) {
+            onClose { released = true }
+            Unit
+        }.toList().single()
+
+        assertEquals("Internal Server Error", response.errors?.single()?.message)
+        assertEquals(listOf(GraphQLPathSegment.Field("userChanged")), response.errors?.single()?.path)
+        assertEquals(GraphQLResponseKind.REQUEST_ERROR, response.kind)
+        assertTrue(released)
     }
 }
 
