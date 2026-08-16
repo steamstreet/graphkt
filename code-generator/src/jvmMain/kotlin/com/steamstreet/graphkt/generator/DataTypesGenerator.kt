@@ -2,10 +2,13 @@ package com.steamstreet.graphkt.generator
 
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
-import graphql.language.EnumTypeDefinition
-import graphql.language.InputObjectTypeDefinition
-import graphql.schema.idl.ScalarInfo
-import graphql.schema.idl.TypeDefinitionRegistry
+import com.steamstreet.graphkt.generator.schema.EnumType
+import com.steamstreet.graphkt.generator.schema.InputObjectType
+import com.steamstreet.graphkt.generator.schema.KotlinTypeMapper
+import com.steamstreet.graphkt.generator.schema.ScalarType
+import com.steamstreet.graphkt.generator.schema.SchemaModel
+import com.steamstreet.graphkt.generator.schema.namedType
+import com.steamstreet.graphkt.generator.schema.specificationScalarNames
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
@@ -13,23 +16,22 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import java.io.File
-import java.util.*
-
-val builtIn = ScalarInfo.GRAPHQL_SPECIFICATION_SCALARS.map {
-    it.name
-}
+import java.util.Properties
 
 /**
  * Generate the types and enums used by queries and server interfaces
  */
-class DataTypesGenerator(
-    schema: TypeDefinitionRegistry,
-    packageName: String,
-    properties: Properties,
-    outputDir: File
-) : GeneratorBase(schema, packageName, properties, outputDir) {
+internal class DataTypesGenerator(
+    private val schema: SchemaModel,
+    private val packageName: String,
+    private val properties: Properties,
+    private val outputDir: File,
+) {
 
-    val commonFile = FileSpec.builder(packageName, "common")
+    private val commonFile = FileSpec.builder(packageName, "common")
+    private val typeMapper = KotlinTypeMapper(schema, packageName)
+    private val customScalars = schema.types.filterIsInstance<ScalarType>()
+        .filterNot { it.name in specificationScalarNames }
 
     fun execute() {
         commonFile.suppress("JSON_FORMAT_REDUNDANT_DEFAULT", "RedundantVisibilityModifier")
@@ -41,7 +43,7 @@ class DataTypesGenerator(
     }
 
     private fun scalarAliases() {
-        schema.customScalars().forEach { scalar ->
+        customScalars.forEach { scalar ->
             val scalarClass = scalarClass(scalar.name)
 
             if (scalarClass == String::class.asClassName()) {
@@ -53,7 +55,7 @@ class DataTypesGenerator(
     }
 
     private fun serializerModule() {
-        val serializers = schema.customScalars().filter { scalarSerializer(it.name) != null }
+        val serializers = customScalars.filter { scalarSerializer(it.name) != null }
 
         if (serializers.isNotEmpty()) {
             commonFile.addProperty(
@@ -105,18 +107,25 @@ class DataTypesGenerator(
         )
     }
 
+    private fun scalarClass(name: String): ClassName =
+        properties["scalar.$name.class"]?.toString()?.let(ClassName::bestGuess)
+            ?: String::class.asClassName()
+
+    private fun scalarSerializer(name: String): ClassName? =
+        properties["scalar.$name.serializer"]?.toString()?.let(ClassName::bestGuess)
+
     fun generateInputTypes() {
-        schema.types().values.mapNotNull { it as? InputObjectTypeDefinition }.forEach { inputType ->
+        schema.types.filterIsInstance<InputObjectType>().forEach { inputType ->
             val inputTypeClass = TypeSpec.classBuilder(inputType.name).apply {
                 addAnnotation(ClassName("kotlinx.serialization", "Serializable"))
 
                 addModifiers(KModifier.DATA)
-                inputType.comments?.forEach {
-                    this.addKdoc(it.content)
+                inputType.description?.let {
+                    addKdoc("%L", it)
                 }
                 primaryConstructor(FunSpec.constructorBuilder().apply {
-                    inputType.inputValueDefinitions.forEach { inputValue ->
-                        val typeName = getKotlinType(inputValue.type)
+                    inputType.fields.forEach { inputValue ->
+                        val typeName = typeMapper.map(inputValue.type)
 
                         addParameter(
                             ParameterSpec.builder(
@@ -127,9 +136,8 @@ class DataTypesGenerator(
                                     defaultValue("null")
                                 }
 
-                                schema.findScalar(inputValue.type)?.let {
-                                    properties["scalar.${it.name}.serializer"]
-                                }?.let {
+                                val scalarName = inputValue.type.namedType().name
+                                if (scalarSerializer(scalarName) != null) {
                                     addAnnotation(ClassName("kotlinx.serialization", "Contextual"))
                                 }
                             }.build()
@@ -137,11 +145,11 @@ class DataTypesGenerator(
                     }
                 }.build())
 
-                inputType.inputValueDefinitions.forEach { inputValue ->
+                inputType.fields.forEach { inputValue ->
                     addProperty(
                         PropertySpec.builder(
                             inputValue.name,
-                            getKotlinType(inputValue.type)
+                            typeMapper.map(inputValue.type)
                         )
                             .initializer(inputValue.name).build()
                     )
@@ -150,8 +158,7 @@ class DataTypesGenerator(
             commonFile.addType(inputTypeClass.build())
         }
 
-        schema.types().values.mapNotNull { it as? EnumTypeDefinition }.forEach { enumType ->
-//            val enumClassName = ClassName(packageName, enumType.name)
+        schema.types.filterIsInstance<EnumType>().forEach { enumType ->
             val enumSealedClassName = ClassName(packageName, enumType.name)
             val serializerClassName = ClassName(
                 enumSealedClassName.packageName, enumSealedClassName.simpleName + "Serializer"
@@ -227,7 +234,7 @@ class DataTypesGenerator(
                         .build()
                 )
 
-                enumType.enumValueDefinitions.forEach { enumValue ->
+                enumType.values.forEach { enumValue ->
                     addType(
                         TypeSpec.objectBuilder(enumValue.name)
                             .superclass(enumSealedClassName)
@@ -261,7 +268,7 @@ class DataTypesGenerator(
                                 CodeBlock.builder()
                                     .beginControlFlow("return when (name)")
                                     .apply {
-                                        enumType.enumValueDefinitions.forEach { enumValue ->
+                                        enumType.values.forEach { enumValue ->
                                             addStatement("%S -> %L", enumValue.name, enumValue.name)
                                         }
                                         addStatement("else -> Unknown(name)")
@@ -271,7 +278,7 @@ class DataTypesGenerator(
                             )
                             .build()
                     ).apply {
-                        val enumValues = enumType.enumValueDefinitions.map {
+                        val enumValues = enumType.values.map {
                             CodeBlock.of("%L", it.name)
                         }
                         val listType = List::class.asClassName().parameterizedBy(enumSealedClassName)

@@ -11,6 +11,8 @@ dependencies {
     implementation(libs.graphql)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.aws.lambda.events)
+
+    testImplementation(kotlin("test"))
 }
 
 

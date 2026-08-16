@@ -23,6 +23,14 @@ kotlin {
                 implementation(libs.graphql)
             }
         }
+
+        val jvmTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.server.test.host)
+            }
+        }
     }
 }
 

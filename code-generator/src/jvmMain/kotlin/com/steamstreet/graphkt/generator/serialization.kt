@@ -11,5 +11,3 @@ val jsonElementType = ClassName("kotlinx.serialization.json", "JsonElement")
 val jsonObjectType = ClassName("kotlinx.serialization.json", "JsonObject")
 val jsonNullType = ClassName("kotlinx.serialization.json", "JsonNull")
 val jsonPrimitiveType = ClassName("kotlinx.serialization.json", "JsonPrimitive")
-
-val serializerFunction = ClassName("kotlinx.serialization.builtins", "serializer")

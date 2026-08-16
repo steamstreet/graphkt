@@ -58,8 +58,8 @@ class QueryGeneratorTest {
         
         val packageName = "com.steamstreet.testpolymorphism"
         
-        // Generate the query code
-        ServerMappingGenerator(schema, packageName, Properties(), outputDir).execute()
+        // Generate the complete server code.
+        Generator(schema, packageName, Properties(), outputDir).generate(client = false)
         
         // Print the generated files
         println("Generated Query Files:")

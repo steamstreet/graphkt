@@ -13,5 +13,3 @@ fun FileSpec.Builder.suppress(vararg value: String) {
             .build()
     )
 }
-
-val NullPointerExceptionClass = ClassName("kotlin", "NullPointerException")

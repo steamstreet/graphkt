@@ -1,87 +1,85 @@
 package com.steamstreet.graphkt.generator
 
-import com.squareup.kotlinpoet.*
-import graphql.language.ImplementingTypeDefinition
-import graphql.language.InterfaceTypeDefinition
-import graphql.language.ObjectTypeDefinition
-import graphql.language.TypeDefinition
-import graphql.schema.idl.TypeDefinitionRegistry
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier
+import com.squareup.kotlinpoet.ParameterSpec
+import com.squareup.kotlinpoet.TypeSpec
+import com.steamstreet.graphkt.generator.schema.Field
+import com.steamstreet.graphkt.generator.schema.InterfaceType
+import com.steamstreet.graphkt.generator.schema.KotlinTypeMapper
+import com.steamstreet.graphkt.generator.schema.ObjectType
+import com.steamstreet.graphkt.generator.schema.SchemaModel
+import com.steamstreet.graphkt.generator.schema.SchemaRelationships
+import com.steamstreet.graphkt.generator.schema.SchemaType
+import com.steamstreet.graphkt.generator.schema.UnionType
 import java.io.File
-import java.util.*
 
-
-class ServerInterfacesGenerator(
-    schema: TypeDefinitionRegistry,
-    packageName: String,
-    properties: Properties,
-    outputDir: File
-) : GeneratorBase(schema, packageName, properties, outputDir) {
-
-    private val servicesFile = FileSpec.builder("$packageName.server", "services")
+/** Generates the request-scoped resolver contracts implemented by an application. */
+internal class ServerInterfacesGenerator(
+    private val schema: SchemaModel,
+    private val packageName: String,
+    private val outputDir: File,
+) {
+    private val serverPackage = "$packageName.server"
+    private val servicesFile = FileSpec.builder(serverPackage, "services")
+    private val typeMapper = KotlinTypeMapper(schema, packageName)
+    private val relationships = SchemaRelationships(schema)
 
     fun execute() {
         servicesFile.suppress("PropertyName", "RedundantVisibilityModifier")
 
-        schema.types().values.forEach { typeDef ->
-            when (typeDef) {
-                is ObjectTypeDefinition -> buildInterface(typeDef)
-                is InterfaceTypeDefinition -> buildInterface(typeDef)
-            }
-        }
+        schema.types
+            .filter { it is ObjectType || it is InterfaceType || it is UnionType }
+            .forEach(::addResolverInterface)
 
         servicesFile.build().writeTo(outputDir)
     }
 
-    private fun buildInterface(typeDef: ImplementingTypeDefinition<*>) {
-        val serverType = TypeSpec.interfaceBuilder(typeDef.name)
-        (typeDef as? ObjectTypeDefinition)?.implements?.map {
-            getKotlinType(it, overriddenPackage = serverPackage).copy(nullable = false)
-        }?.forEach {
-            serverType.addSuperinterface(it)
+    private fun addResolverInterface(type: SchemaType) {
+        val inheritedFields = when (type) {
+            is ObjectType -> relationships.inheritedFieldNames(type)
+            is InterfaceType -> relationships.inheritedFieldNames(type)
+            else -> emptySet()
         }
 
-        typeDef.comments?.forEach {
-            serverType.addKdoc(it.content)
-        }
+        servicesFile.addType(
+            TypeSpec.interfaceBuilder(type.name).apply {
+                type.description?.let { addKdoc("%L", it) }
+                superinterfaces(type).forEach { name ->
+                    addSuperinterface(ClassName(serverPackage, name))
+                }
 
-        val fields = when (typeDef) {
-            is ObjectTypeDefinition -> typeDef.fieldDefinitions
-            is InterfaceTypeDefinition -> typeDef.fieldDefinitions
-            else -> null
-        }
-
-        val overriddenFields = if (typeDef is ObjectTypeDefinition) schema.getOverriddenFields(typeDef) else emptyList()
-
-        fields?.forEach { field ->
-            val fieldType = getKotlinType(field.type, overriddenPackage = serverPackage)
-//            if (field.inputValueDefinitions.isEmpty()) {
-//                serverType.addProperty(PropertySpec.builder(field.name, fieldType).apply {
-//                    field.comments?.forEach {
-//                        this.addKdoc(it.content)
-//                    }
-//                    if (overriddenFields.map { it.name }.contains(field.name)) {
-//                        addModifiers(KModifier.OVERRIDE)
-//                    }
-//                }.build())
-//            } else {
-                serverType.addFunction(FunSpec.builder(field.name)
-                        .apply {
-                            field.comments?.forEach {
-                                this.addKdoc(it.content)
+                fields(type).forEach { field ->
+                    addFunction(
+                        FunSpec.builder(field.name).apply {
+                            field.description?.let { addKdoc("%L", it) }
+                            addModifiers(KModifier.ABSTRACT, KModifier.SUSPEND)
+                            if (field.name in inheritedFields) addModifiers(KModifier.OVERRIDE)
+                            returns(typeMapper.map(field.type, overriddenPackage = serverPackage))
+                            field.arguments.forEach { argument ->
+                                addParameter(
+                                    ParameterSpec.builder(argument.name, typeMapper.map(argument.type)).build(),
+                                )
                             }
-                            addModifiers(KModifier.ABSTRACT)
-                            addModifiers(KModifier.SUSPEND)
-                            if (overriddenFields.map { it.name }.contains(field.name)) {
-                                addModifiers(KModifier.OVERRIDE)
-                            }
-                            returns(fieldType)
-                            field.inputValueDefinitions.forEach {
-                                addParameter(ParameterSpec.builder(it.name, getKotlinType(it.type)).build())
-                            }
-                        }.build())
-//            }
-        }
+                        }.build(),
+                    )
+                }
+            }.build(),
+        )
+    }
 
-        servicesFile.addType(serverType.build())
+    private fun fields(type: SchemaType): List<Field> = when (type) {
+        is ObjectType -> type.fields
+        is InterfaceType -> type.fields
+        is UnionType -> emptyList()
+        else -> emptyList()
+    }
+
+    private fun superinterfaces(type: SchemaType): List<String> = when (type) {
+        is ObjectType -> (type.interfaces + relationships.unionsOf(type).map { it.name }).distinct().sorted()
+        is InterfaceType -> type.interfaces.distinct().sorted()
+        else -> emptyList()
     }
 }

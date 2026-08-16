@@ -78,7 +78,7 @@ public class GraphQLKtorClient(
             }.build())
 
             method = HttpMethod.Get
-            accept(ContentType.Application.Json)
+            header(HttpHeaders.Accept, GRAPHQL_ACCEPT)
         }
         return response.body()
     }
@@ -102,9 +102,13 @@ public class GraphQLKtorClient(
             }
             val gql = json.encodeToString(JsonObject.serializer(), envelope)
 
-            setBody(TextContent(gql, ContentType.parse("application/graphql")))
-            accept(ContentType.Application.Json)
+            setBody(TextContent(gql, ContentType.Application.Json))
+            header(HttpHeaders.Accept, GRAPHQL_ACCEPT)
         }
         return response.body()
+    }
+
+    private companion object {
+        const val GRAPHQL_ACCEPT: String = "application/graphql-response+json, application/json;q=0.9"
     }
 }

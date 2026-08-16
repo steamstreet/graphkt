@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.util.Properties
 import kotlin.test.Test
+import kotlin.test.assertTrue
 
 class ServerInterfacesGeneratorTest {
     @Test
@@ -74,12 +75,12 @@ class ServerInterfacesGeneratorTest {
         """.trimIndent(), outputDir)
     }
 
-    fun testCompilation(schema: String, outputDir: File) {
+    private fun testCompilation(schema: String, outputDir: File) {
         val parser = SchemaParser()
         val schema = parser.parse(schema)
         val packageName = "com.steamstreet.testinputs"
-        Generator(schema, packageName, Properties(), outputDir).generate(server = false)
-//        validateCompilation(outputDir)
+        Generator(schema, packageName, Properties(), outputDir).generate(client = false)
+        assertTrue(compileKotlinFiles(outputDir), "Generated server code should compile")
     }
 
     @Test

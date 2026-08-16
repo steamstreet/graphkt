@@ -9,6 +9,9 @@ dependencies {
     api(libs.graphql)
     api(libs.kotlin.poet)
     api(project(":code-generator"))
+
+    testImplementation(gradleTestKit())
+    testImplementation(kotlin("test-junit5"))
 }
 
 gradlePlugin {

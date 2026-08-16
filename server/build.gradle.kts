@@ -7,6 +7,18 @@ kotlin {
     jvm()
     js(IR) { browser() }
 
+    iosArm64()
+    iosX64()
+    iosSimulatorArm64()
+
+    macosX64()
+    macosArm64()
+
+    linuxX64()
+    linuxArm64()
+
+    mingwX64()
+
     explicitApi()
 
     sourceSets {
@@ -15,6 +27,14 @@ kotlin {
                 api(libs.kotlin.serialization.json)
 
                 api(project(":common-runtime"))
+                implementation(libs.kotlinx.coroutines.core)
+            }
+        }
+
+        val commonTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.kotlinx.coroutines.test)
             }
         }
 

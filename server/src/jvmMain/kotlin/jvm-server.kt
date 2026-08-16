@@ -1,18 +1,12 @@
 package com.steamstreet.graphkt.server
 
 import com.steamstreet.graphkt.GraphQLError
+import com.steamstreet.graphkt.GraphQLPathSegment
 import graphql.language.*
 import graphql.parser.Parser
 import kotlinx.serialization.json.*
-import java.io.PrintWriter
-import java.io.StringWriter
 
-public val gqlContext: ThreadLocal<RequestSelection> = ThreadLocal<RequestSelection>()
 public val json: Json = Json
-
-public actual fun gqlRequestContext(): RequestSelection? {
-    return gqlContext.get()
-}
 
 public fun parseGraphQLOperation(query: String): OperationDefinition {
     val parser = Parser()
@@ -26,10 +20,13 @@ public class ServerRequestSelection(
     public val variables: Map<String, JsonElement>,
     public val node: Node<*>,
     public val errors: MutableList<GraphQLError>,
-    override val typeName: String? = null
+    override val typeName: String? = null,
+    private val pathOverride: List<GraphQLPathSegment>? = null,
 ) : RequestSelection {
     override val name: String
         get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
+    override val responseName: String
+        get() = (node as? Field)?.alias ?: name
     override val children: List<RequestSelection>
         get() {
             val selectionSet = when (node) {
@@ -80,25 +77,29 @@ public class ServerRequestSelection(
         return variables[key]!!
     }
 
-    override fun setAsContext() {
-        gqlContext.set(this)
-    }
+    override fun forIndex(index: Int): RequestSelection = ServerRequestSelection(
+        parent = parent,
+        variables = variables,
+        node = node,
+        errors = errors,
+        typeName = typeName,
+        pathOverride = path + GraphQLPathSegment.Index(index),
+    )
 
     override fun error(t: Throwable) {
-        val writer = StringWriter()
-        val printWriter = PrintWriter(writer)
-        t.printStackTrace(printWriter)
-        printWriter.flush()
-
-        val error = GraphQLError(t.message ?: "Internal Server Error", extensions = buildJsonObject {
-            this.put("stacktrace", writer.toString())
-        }, path = path)
+        val error = GraphQLError("Internal Server Error", path = path)
         errors.add(error)
     }
 
-    private val path: List<String>
+    override val path: List<GraphQLPathSegment>
         get() {
-            return (parent?.path.orEmpty() + ((node as? NamedNode<*>)?.name)).filterNotNull()
+            pathOverride?.let { return it }
+            val field = when (val currentNode = node) {
+                is Field -> GraphQLPathSegment.Field(currentNode.alias ?: currentNode.name)
+                is NamedNode<*> -> GraphQLPathSegment.Field(currentNode.name)
+                else -> null
+            }
+            return parent?.path.orEmpty() + listOfNotNull(field)
         }
 }
 

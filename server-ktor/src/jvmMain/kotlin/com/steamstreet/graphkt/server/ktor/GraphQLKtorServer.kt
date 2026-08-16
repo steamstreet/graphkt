@@ -13,8 +13,7 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.json.*
-import java.io.PrintWriter
-import java.io.StringWriter
+import kotlin.coroutines.cancellation.CancellationException
 
 public interface GraphQLConfiguration {
     public fun query(block: suspend (ApplicationCall, RequestSelection) -> JsonElement?)
@@ -76,14 +75,8 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
     config.block()
 
     suspend fun ApplicationCall.respondError(t: Throwable) {
-        val writer = StringWriter()
-        val printWriter = PrintWriter(writer)
-        t.printStackTrace(printWriter)
-        printWriter.flush()
-
-        val error = GraphQLError(t.message ?: "Internal Server Error", extensions = buildJsonObject {
-            this.put("stacktrace", writer.toString())
-        })
+        if (t is CancellationException) throw t
+        val error = GraphQLError("Internal Server Error")
 
         if (errorHandler != null) {
             errorHandler.invoke(listOf(error))

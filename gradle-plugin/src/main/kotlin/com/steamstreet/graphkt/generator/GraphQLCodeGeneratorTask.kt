@@ -1,82 +1,88 @@
 package com.steamstreet.graphkt.generator
 
-import graphql.schema.idl.SchemaParser
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.tasks.*
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
-import java.io.File
-import java.util.*
+import org.gradle.api.tasks.OutputDirectory
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 
-/**
- * The task to generate code.
- */
-open class GraphQLCodeGeneratorTask : DefaultTask() {
-    @InputFile
-    fun getSchema(): File {
-        return File(project.graphQL().schema)
-    }
+/** Generates GraphKt sources from all configured schema files. */
+@CacheableTask
+public abstract class GraphQLCodeGeneratorTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    public abstract val schemaFiles: ConfigurableFileCollection
 
-    @InputFile
-    @Optional
-    fun getProperties(): File? {
-        return File(getSchema().parentFile, "${getSchema().nameWithoutExtension}.properties").takeIf { it.exists() }
-    }
+    @get:InputFile
+    @get:Optional
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    public abstract val propertiesFile: RegularFileProperty
 
-    @InputFiles
-    fun getSchemaFiles(): List<File> {
-        val schemaFile = getSchema()
-        return schemaFile.parentFile.listFiles { _, name ->
-            name != schemaFile.name && name.endsWith(".graphql")
-        }?.toList() ?: emptyList()
-    }
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    public abstract val derivedPropertiesFiles: ConfigurableFileCollection
 
-    @OutputDirectory
-    fun getGeneratedOutputDir(): File {
-        return project.layout.buildDirectory.file("graphql/generated").get().asFile
-    }
+    @get:Input
+    public abstract val packageName: Property<String>
 
-    @OutputDirectory
-    fun getServerGeneratedOutputDir(): File {
-        return project.layout.buildDirectory.file("graphql/server/generated").get().asFile
-    }
+    @get:Input
+    public abstract val generateClient: Property<Boolean>
+
+    @get:Input
+    public abstract val generateServer: Property<Boolean>
+
+    @get:OutputDirectory
+    public abstract val generatedOutputDirectory: DirectoryProperty
+
+    @get:OutputDirectory
+    public abstract val serverGeneratedOutputDirectory: DirectoryProperty
 
     @TaskAction
-    fun doAction() {
-        val schemaFile = getSchema()
-        if (!schemaFile.exists()) {
-            throw GradleException("You must specify a path to the schema file")
-        }
-
-        val parser = SchemaParser()
-        val schema = parser.parse(schemaFile)
-
-        val schemaFiles = getSchemaFiles()
-        schemaFiles.forEach {
-            val nested = parser.parse(it)
-            schema.merge(nested)
-        }
-
-        val outputDir = getGeneratedOutputDir()
-        outputDir.mkdirs()
-
-        getServerGeneratedOutputDir().mkdirs()
-
-        val properties = Properties().also { properties ->
-            getProperties()?.inputStream()?.use {
-                properties.load(it)
+    public fun generate() {
+        val schemas = schemaFiles.files
+            .flatMap { input ->
+                if (input.isDirectory) {
+                    input.walkTopDown().filter { file -> file.isFile && file.extension == "graphql" }.toList()
+                } else {
+                    listOf(input)
+                }
             }
+            .distinctBy { it.canonicalPath }
+            .sortedBy { it.canonicalPath }
+        if (schemas.isEmpty()) {
+            throw GradleException("You must specify at least one GraphQL schema file")
+        }
+        val configuredProperties = propertiesFile.orNull?.asFile
+        val derivedProperties = derivedPropertiesFiles.files.sortedBy { it.canonicalPath }
+        if (configuredProperties == null && derivedProperties.size > 1) {
+            throw GradleException("Multiple schema properties files exist. Configure graphKt.propertiesFile explicitly.")
         }
 
-        val configuration = project.graphQL()
-        DataTypesGenerator(schema, configuration.basePackage, properties, outputDir).execute()
-        if (configuration.generateClient) {
-            QueryGenerator(schema, configuration.basePackage, properties, outputDir).execute()
-            ResponseParserGenerator(schema, configuration.basePackage, properties, outputDir).execute()
-        }
-        if (configuration.generateServer) {
-            ServerInterfacesGenerator(schema, configuration.basePackage, properties, outputDir).execute()
-            ServerMappingGenerator(schema, configuration.basePackage, properties, outputDir).execute()
-        }
+        GraphKtGenerator().generate(
+            GenerationRequest(
+                schemaFiles = schemas,
+                propertiesFile = configuredProperties ?: derivedProperties.singleOrNull(),
+                packageName = packageName.get(),
+                features = GenerationFeatures(
+                    client = generateClient.get(),
+                    server = generateServer.get(),
+                ),
+                outputs = GenerationOutputs(
+                    common = generatedOutputDirectory.get().asFile,
+                    client = generatedOutputDirectory.get().asFile,
+                    server = serverGeneratedOutputDirectory.get().asFile,
+                ),
+            ),
+        )
     }
 }

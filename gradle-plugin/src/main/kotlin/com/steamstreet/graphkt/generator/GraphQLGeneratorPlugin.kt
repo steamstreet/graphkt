@@ -3,31 +3,52 @@ package com.steamstreet.graphkt.generator
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 
-/**
- * Plugin to generate code from a graphQL schema
- */
-class GraphQLGeneratorPlugin : Plugin<Project> {
+/** Configures GraphKt generation and Kotlin source-set integration. */
+public class GraphQLGeneratorPlugin : Plugin<Project> {
     override fun apply(target: Project) {
-        target.extensions.create<GraphQLExtension>(EXTENSION_NAME,
-                GraphQLExtension::class.java)
-        val task = target.tasks.register(
-            "generateGraphQLCode",
-            GraphQLCodeGeneratorTask::class.java
+        val extension = target.extensions.create(
+            GRAPHKT_EXTENSION_NAME,
+            GraphQLExtension::class.java,
         )
+        target.extensions.add("GraphQL", extension)
 
-        // Every Kotlin compilation must run after code generation. This has to cover more than the
-        // JVM-style "compileKotlin" task, because multiplatform projects also compile per-target
-        // ("compileKotlinLinuxX64", "compileTestKotlinJvm") and compile shared source sets as
-        // metadata ("compileCommonMainKotlinMetadata", "compileNativeMainKotlinMetadata").
-        // configureEach is lazy, so tasks are not realized just to attach the dependency.
-        target.tasks.configureEach {
-            if (KOTLIN_COMPILE_TASK.matches(it.name)) {
-                it.dependsOn(task)
-            }
+        val generationTask = target.tasks.register(
+            "generateGraphQLCode",
+            GraphQLCodeGeneratorTask::class.java,
+        ) { task ->
+            task.group = "graphkt"
+            task.description = "Generates Kotlin sources from GraphQL schema files."
+            task.schemaFiles.from(extension.schemaFiles)
+            task.propertiesFile.set(extension.propertiesFile)
+            task.derivedPropertiesFiles.from(
+                extension.schemaFiles.elements.map { schemaLocations ->
+                    schemaLocations.flatMap { location ->
+                        val input = location.asFile
+                        if (input.isDirectory) {
+                            input.walkTopDown()
+                                .filter { file -> file.isFile && file.extension == "properties" }
+                                .toList()
+                        } else {
+                            listOfNotNull(
+                                input.resolveSibling("${input.nameWithoutExtension}.properties").takeIf { it.isFile },
+                            )
+                        }
+                    }
+                },
+            )
+            task.packageName.set(extension.packageName)
+            task.generateClient.set(extension.client.enabled)
+            task.generateServer.set(extension.server.enabled)
+            task.generatedOutputDirectory.convention(target.layout.buildDirectory.dir("graphql/generated"))
+            task.serverGeneratedOutputDirectory.convention(target.layout.buildDirectory.dir("graphql/server/generated"))
         }
-    }
 
-    private companion object {
-        val KOTLIN_COMPILE_TASK = Regex("compile\\w*Kotlin\\w*")
+        target.pluginManager.withPlugin("org.jetbrains.kotlin.multiplatform") {
+            KotlinSourceSetWiring.wireMultiplatform(target, generationTask)
+        }
+
+        target.pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+            KotlinSourceSetWiring.wireJvm(target, generationTask)
+        }
     }
 }

@@ -52,7 +52,7 @@ public class AppendableQueryWriter(
         return realKey
     }
 
-    override fun <T : Any> variable(name: String, type: String, serializer: KSerializer<T>, value: T): String {
+    override fun <T> variable(name: String, type: String, serializer: KSerializer<T>, value: T): String {
         var realKey = name
         var index = 1
         while (variables.containsKey(realKey)) {

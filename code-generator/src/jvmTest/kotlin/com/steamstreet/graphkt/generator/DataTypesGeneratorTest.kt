@@ -56,8 +56,6 @@ class DataTypesGeneratorTest {
 
         val packageName = "com.steamstreet.testenums"
 
-        ResponseParserGenerator(schema, packageName, Properties(), outputDir).execute()
-
         Generator(schema, packageName, Properties(), outputDir).generate(server = false)
 //        DataTypesGenerator(schema, packageName, Properties(), outputDir).execute()
 

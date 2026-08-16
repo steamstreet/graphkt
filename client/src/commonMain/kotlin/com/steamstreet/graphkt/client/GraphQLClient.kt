@@ -1,6 +1,7 @@
 package com.steamstreet.graphkt.client
 
 import com.steamstreet.graphkt.GraphQLError
+import com.steamstreet.graphkt.GraphQLPathSegment
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -53,7 +54,12 @@ public interface GraphQLClient {
             json.decodeFromJsonElement(ListSerializer(GraphQLError.serializer()), it)
         }
         val response = DefaultGraphQLResponse("", errorList, errorList?.associateBy {
-            it.path?.joinToString(".") ?: ""
+            it.path?.joinToString(".") { segment ->
+                when (segment) {
+                    is GraphQLPathSegment.Field -> segment.name
+                    is GraphQLPathSegment.Index -> segment.index.toString()
+                }
+            } ?: ""
         } ?: emptyMap())
 
         val data = resultElement.jsonObject["data"]

@@ -26,8 +26,6 @@ kotlin {
 
     sourceSets {
         commonMain {
-            // The plugin writes generated sources here and wires generation ahead of every Kotlin compilation.
-            kotlin.srcDir(layout.buildDirectory.dir("graphql/generated"))
             dependencies {
                 api("com.steamstreet:graphkt-client-ktor:$graphKtVersion")
             }
@@ -42,9 +40,11 @@ kotlin {
     }
 }
 
-GraphQL {
-    schema = File(projectDir, "schema.graphql").canonicalPath
-    basePackage = "com.steamstreet.graphkt.samples.basic"
-    // The generated server code depends on the JVM/JS-only server runtime, so a native client must not generate it.
-    generateServer = false
+graphKt {
+    schemaFiles.from(file("schema.graphql"))
+    packageName.set("com.steamstreet.graphkt.samples.basic")
+    server {
+        // This sample uses only the generated client API.
+        enabled.set(false)
+    }
 }
