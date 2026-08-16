@@ -29,6 +29,7 @@ internal class ResponseParserGenerator(
     private val properties: Properties,
     private val outputDir: File,
 ) {
+    private val nullPointerExceptionType = ClassName("kotlin", "NullPointerException")
     private val clientPackage = "$packageName.client"
     private val responseType = ClassName("com.steamstreet.graphkt.client", "GraphQLResponse")
     private val responsesFile = FileSpec.builder(clientPackage, "responses")
@@ -181,7 +182,7 @@ internal class ResponseParserGenerator(
             .add("}")
             .apply {
                 if (isNonNull) {
-                    add(" ?: throw %T(%S)", NullPointerException::class, nullMessage)
+                    add(" ?: throw %T(%S)", nullPointerExceptionType, nullMessage)
                 }
             }
             .build()

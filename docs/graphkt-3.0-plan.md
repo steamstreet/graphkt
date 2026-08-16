@@ -83,11 +83,19 @@ Completed work:
 - The Gradle plugin does not require one Kotlin Gradle plugin version at runtime.
 - Gradle TestKit covers KMP source-set wiring and removal of disabled server output.
 - Generated-source fixtures compile client and server output together.
+- The Ktor and browser clients preserve supplied operation names in documents and request envelopes.
+- The browser client uses UTF-8 JSON POST envelopes and GraphQL response media negotiation.
+- A Native direct-execution sample compiles generated client, server, and subscription code.
+- The migration guide documents resolver factories, request scopes, optional inputs, errors, transports, and compatibility.
+- The API reference documents artifacts, platform targets, limits, execution policy, scopes, and transports.
+- The Kotlin/Native guide documents client-only and common server builds.
+- The 3.0.0 release notes record breaking changes, platform scope, security behavior, and release checks.
+- Both standalone Native samples pass against a locally published `3.0.0-SNAPSHOT`.
 - The repository-wide Gradle check passes for JVM, JavaScript, and the available Native targets.
 
 Remaining work:
 
-- Write the migration guide, Native samples, API reference, and release notes.
+- Run two release candidates without a public API change.
 
 ## 1. Purpose
 

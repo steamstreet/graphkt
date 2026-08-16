@@ -1,4 +1,4 @@
-// A GraphKt client consumed from Kotlin/Native targets (Linux, macOS, Windows), plus JVM for comparison.
+// A GraphKt client consumed from Kotlin/Native targets, plus JVM for comparison.
 //
 // Run against a locally published build of GraphKt:
 //   ./gradlew snapshot                                (from the repository root; publishes x.y.z-SNAPSHOT to mavenLocal)
@@ -18,6 +18,9 @@ plugins {
 
 kotlin {
     jvm()
+    iosArm64()
+    iosX64()
+    iosSimulatorArm64()
     linuxX64()
     linuxArm64()
     macosArm64()
@@ -44,7 +47,7 @@ graphKt {
     schemaFiles.from(file("schema.graphql"))
     packageName.set("com.steamstreet.graphkt.samples.basic")
     server {
-        // This sample uses only the generated client API.
+        // This sample checks only the generated client API. See native-direct for both API families.
         enabled.set(false)
     }
 }

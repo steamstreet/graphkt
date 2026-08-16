@@ -45,6 +45,7 @@ internal class ServerMappingGenerator(
     private val flowMap = MemberName("kotlinx.coroutines.flow", "map")
     private val subscriptionEventResolverType =
         ClassName("com.steamstreet.graphkt.server", "GraphQLSubscriptionEventResolver")
+    private val illegalArgumentExceptionType = ClassName("kotlin", "IllegalArgumentException")
     private val subscriptionRootName = schema.operations
         .firstOrNull { operation -> operation.kind == OperationKind.SUBSCRIPTION }
         ?.typeName
@@ -151,7 +152,7 @@ internal class ServerMappingGenerator(
                     }
                     addStatement(
                         "else -> throw %T(%P)",
-                        IllegalArgumentException::class,
+                        illegalArgumentExceptionType,
                         "Unknown subscription field '${'$'}{child.name}' on ${type.name}",
                     )
                 }
@@ -218,7 +219,7 @@ internal class ServerMappingGenerator(
                     } else {
                         addStatement(
                             "else -> throw %T(%P)",
-                            IllegalArgumentException::class,
+                            illegalArgumentExceptionType,
                             "Unknown field '${'$'}{child.name}' on ${type.name}",
                         )
                     }
@@ -353,7 +354,7 @@ internal class ServerMappingGenerator(
                 }
                 add(
                     "else -> throw %T(%S)\n",
-                    IllegalArgumentException::class,
+                    illegalArgumentExceptionType,
                     "Resolver does not implement a concrete type for ${type.name}",
                 )
             }
@@ -376,7 +377,7 @@ internal class ServerMappingGenerator(
             }
             add(
                 "else -> throw %T(%P)\n",
-                IllegalArgumentException::class,
+                illegalArgumentExceptionType,
                 "Unknown selection '${'$'}{child.name}' for ${type.name}",
             )
         }

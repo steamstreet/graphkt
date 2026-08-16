@@ -39,6 +39,7 @@ public class GraphQLKtorClient(
      */
     override suspend fun execute(name: String?, json: Json, block: QueryWriter.() -> Unit): String {
         val writer = AppendableQueryWriter(json)
+        if (name != null) writer.named(name)
         writer.block()
 
         val query = writer.toString()
@@ -56,13 +57,13 @@ public class GraphQLKtorClient(
         }
 
         return if (writer.type == "mutation") {
-            post(query, null, variables)
+            post(query, name, variables)
         } else {
-            get(query, variables)
+            get(query, name, variables)
         }
     }
 
-    private suspend fun get(query: String, variables: JsonObject?): String {
+    private suspend fun get(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
 
         val response = http.request {
@@ -72,6 +73,9 @@ public class GraphQLKtorClient(
 
             url(URLBuilder(endpoint).apply {
                 parameters["query"] = query
+                if (operationName != null) {
+                    parameters["operationName"] = operationName
+                }
                 if (variables != null) {
                     parameters["variables"] = json.encodeToString(JsonObject.serializer(), variables)
                 }

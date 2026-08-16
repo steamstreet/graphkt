@@ -1,0 +1,12 @@
+schema {
+    query: Query
+    subscription: Events
+}
+
+type Query {
+    greeting(name: String!): String!
+}
+
+type Events {
+    ticker: Int!
+}

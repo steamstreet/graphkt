@@ -1,6 +1,4 @@
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# GraphKt repository guide
 
 ## Project Overview
 
@@ -38,9 +36,9 @@ GraphKT is a GraphQL code generation and runtime framework for Kotlin Multiplatf
 | `client` | KMP | GraphQL client interfaces (`GraphQLClient`, `QueryWriter`) |
 | `client-ktor` | KMP | Ktor-based HTTP client implementation |
 | `client-fetch` | JS | Browser Fetch API client |
-| `client-direct` | JVM | Direct client using GraphQL-Java |
-| `server` | JVM/JS | Server-side request handling |
-| `server-ktor` | JVM | Ktor server integration |
+| `client-direct` | KMP | In-process query, mutation, and subscription client |
+| `server` | KMP | Common parser, validator, request scope, and execution engine |
+| `server-ktor` | KMP | Ktor server route integration |
 | `server-lambda` | JVM | AWS Lambda integration |
 
 ### Code Generation Flow
@@ -62,19 +60,21 @@ plugins {
     id("com.steamstreet.graphkt")
 }
 
-GraphQL {
-    schema = "src/main/graphql/schema.graphqls"
-    basePackage = "com.example.graphql"
-    generateClient = true   // default: true
-    generateServer = true   // default: true
+graphKt {
+    schemaFiles.from("src/commonMain/graphql")
+    packageName.set("com.example.graphql")
+    client {
+        enabled.set(true)
+    }
+    server {
+        enabled.set(true)
+    }
 }
 ```
 
-The plugin wires `generateGraphQLCode` ahead of every Kotlin compilation task (per-target compiles and KMP
-metadata compiles), so consumers only need to add `build/graphql/generated` as a source directory.
+The plugin connects both generated output directories to `commonMain`. It also adds the generation task as a compilation dependency.
 
-Native (Kotlin/Native) consumers must set `generateServer = false`: the generated server code depends on the
-`server` module, which is JVM/JS only, and it is written to the same output directory as the client code.
+Generated client and server code supports Kotlin/Native. Client-only projects can disable server generation to reduce generated code.
 
 ## Key Technical Details
 
@@ -83,9 +83,9 @@ Native (Kotlin/Native) consumers must set `generateServer = false`: the generate
 - **Context receivers**: Enabled via `-Xcontext-receivers`
 - **Test framework**: JUnit 5
 - **Multiplatform targets**:
-  - `common-runtime`, `client`, `client-ktor`: JVM, JS, iOS (Arm64, X64, SimulatorArm64), macOS (X64, Arm64), Linux (X64, Arm64), Windows (mingwX64)
-  - `server`: JVM, JS
-  - Everything else: JVM only
+  - Core runtime modules: JVM, JS, iOS, macOS, Linux, and Windows MinGW
+  - `client-fetch`: JS only
+  - `server-lambda`, generator, and Gradle plugin: JVM only
 - **Published to**: Maven Central as `com.steamstreet:graphkt-*`
 
 ## Convention Plugins

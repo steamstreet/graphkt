@@ -214,6 +214,7 @@ class GraphKtGeneratorTest {
         assertTrue(query.contains("::RootQueryResponse"), query)
 
         val responses = File(output, "com/steamstreet/graphkt/generated/client/responses.kt").readText()
+        assertFalse(responses.contains("import java."), responses)
         assertTrue(responses.contains("public interface SearchResult"), responses)
         assertTrue(responses.contains("public interface Product : SearchResult"), responses)
         assertTrue(responses.contains("\"Product\" -> ProductResponse"), responses)
@@ -227,6 +228,7 @@ class GraphKtGeneratorTest {
         assertFalse(services.contains("ResolverContext"), services)
 
         val mapping = File(output, "com/steamstreet/graphkt/generated/server/service-mapping.kt").readText()
+        assertFalse(mapping.contains("import java."), mapping)
         assertFalse(mapping.contains("setAsContext"), mapping)
         assertFalse(mapping.contains("gqlRequestContext"), mapping)
         assertTrue(mapping.contains("child.resolveFieldValue(nonNull = true)"), mapping)

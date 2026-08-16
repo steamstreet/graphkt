@@ -31,6 +31,7 @@ public class GraphQLJsClient(
      */
     override suspend fun execute(name: String?, json: Json, block: QueryWriter.() -> Unit): String {
         val writer = AppendableQueryWriter(json)
+        if (name != null) writer.named(name)
         writer.block()
 
         val query = writer.toString()
@@ -48,24 +49,28 @@ public class GraphQLJsClient(
         }
 
         return if (writer.type == "mutation") {
-            post(query, null, variables)
+            post(query, name, variables)
         } else {
-            get(query, variables)
+            get(query, name, variables)
         }
     }
 
-    private suspend fun get(query: String, variables: JsonObject?): String {
+    private suspend fun get(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
 
         val queryParameters = buildList {
             add("query=${encodeURIComponent(query)}")
+
+            if (operationName != null) {
+                add("operationName=${encodeURIComponent(operationName)}")
+            }
 
             if (variables != null) {
                 add("variables=${encodeURIComponent(json.encodeToString(JsonObject.serializer(), variables))}")
             }
         }
 
-        val headerPairs = headers.map { it.key to it.value } + ("Accept" to "application/json")
+        val headerPairs = headers.map { it.key to it.value } + ("Accept" to GRAPHQL_ACCEPT)
 
         val result = window.fetch(
             "${endpoint}?${queryParameters.joinToString("&")}", RequestInit(
@@ -88,8 +93,9 @@ public class GraphQLJsClient(
     private suspend fun post(query: String, operationName: String?, variables: JsonObject?): String {
         val headers = headerInitializer()
 
-        val headerPairs =
-            headers.map { it.key to it.value } + ("Accept" to "application/json") + ("Content-Type" to "application/graphql; charset=utf8")
+        val headerPairs = headers.map { it.key to it.value } +
+            ("Accept" to GRAPHQL_ACCEPT) +
+            ("Content-Type" to "application/json; charset=utf-8")
 
         val envelope = buildJsonObject {
             this.put("query", query)
@@ -117,5 +123,9 @@ public class GraphQLJsClient(
             )
         }
         return result.text().await()
+    }
+
+    private companion object {
+        const val GRAPHQL_ACCEPT: String = "application/graphql-response+json, application/json;q=0.9"
     }
 }
