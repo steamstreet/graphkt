@@ -1,6 +1,7 @@
 package com.steamstreet.graphkt.server.ktor
 
 import com.steamstreet.graphkt.GraphQLError
+import com.steamstreet.graphkt.server.GraphQLResolverErrorFactory
 import com.steamstreet.graphkt.server.RequestSelection
 import com.steamstreet.graphkt.server.ServerRequestSelection
 import com.steamstreet.graphkt.server.buildResponse
@@ -49,9 +50,30 @@ public fun Route.graphQL(
 
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
+ *
+ * Resolver failures are recorded as field errors with a generic message. To record other errors,
+ * pass a [GraphQLResolverErrorFactory] to the overload that takes one.
  */
 @Suppress("unused")
 public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
+    graphQL(GraphQLResolverErrorFactory.Generic, block)
+}
+
+/**
+ * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
+ *
+ * Each callback receives a [ServerRequestSelection] for the operation and usually passes it to a
+ * generated root `gqlSelect` function. Resolver failures are recorded as field errors through
+ * [errorFactory].
+ *
+ * Execution follows GraphQL null propagation. When a callback returns [JsonNull], because a failed
+ * non-null root field made the whole result null, the response is `{"data": null, "errors": [...]}`
+ * with the recorded errors.
+ */
+public fun Route.graphQL(
+    errorFactory: GraphQLResolverErrorFactory,
+    block: GraphQLConfiguration.() -> Unit,
+) {
     val json = Json {
         ignoreUnknownKeys = true
     }
@@ -98,9 +120,11 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
         try {
             val errors = ArrayList<GraphQLError>()
             val selection = ServerRequestSelection(
-                null, variables ?: emptyMap(),
-                query?.selectionSet ?: throw IllegalArgumentException(),
-                errors
+                parent = null,
+                variables = variables ?: emptyMap(),
+                node = query?.selectionSet ?: throw IllegalArgumentException(),
+                errors = errors,
+                errorFactory = errorFactory,
             )
             val result = function?.invoke(call, selection) ?: throw NotFoundException()
             val response = buildResponse(result, errors)

@@ -37,6 +37,7 @@ internal class ServerMappingGenerator(
     private val requestSelectionType = ClassName("com.steamstreet.graphkt.server", "RequestSelection")
     private val resolveFieldValue = MemberName("com.steamstreet.graphkt.server", "resolveFieldValue")
     private val resolveListElement = MemberName("com.steamstreet.graphkt.server", "resolveListElement")
+    private val resolveSelectionSet = MemberName("com.steamstreet.graphkt.server", "resolveSelectionSet")
     private val typeMapper = KotlinTypeMapper(schema, packageName)
     private val relationships = SchemaRelationships(schema)
     private val typesByName = schema.types.associateBy { it.name }
@@ -236,15 +237,20 @@ internal class ServerMappingGenerator(
                 .addParameter("field", requestSelectionType)
                 .addModifiers(KModifier.SUSPEND)
                 .returns(jsonElementType)
-                .beginControlFlow("val fields = field.children.mapNotNull { child ->")
-                .addStatement("val value = gqlSelectChild(child)")
-                .beginControlFlow("if (value != null)")
-                .addStatement("child.responseName to value")
-                .nextControlFlow("else")
-                .addStatement("null")
-                .endControlFlow()
-                .endControlFlow()
-                .addStatement("return %T(fields.toMap())", jsonObjectType)
+                .addKdoc(
+                    """
+                    Resolves the fields that [field] selects and returns them as a JSON object.
+
+                    A failed or null non-null field makes its nearest nullable ancestor null, as the
+                    GraphQL specification requires, and its error is recorded through
+                    [%T.error]. When [field] is an operation's root selection set and the null reaches
+                    it, this returns [%T] instead of an object, and the response is
+                    `{"data": null, "errors": [...]}`.
+                    """.trimIndent(),
+                    requestSelectionType,
+                    jsonNullType,
+                )
+                .addStatement("return field.%M { child -> gqlSelectChild(child) }", resolveSelectionSet)
                 .build(),
         )
     }

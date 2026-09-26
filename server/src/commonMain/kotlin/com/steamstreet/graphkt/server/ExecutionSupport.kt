@@ -5,6 +5,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlin.coroutines.AbstractCoroutineContextElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
@@ -28,6 +29,51 @@ internal data class ResolverFailure(
 )
 
 internal class NonNullPropagationException : RuntimeException()
+
+/**
+ * Runs [block], which resolves the fields of an operation's root selection set, and returns null
+ * when a null propagates past a non-null root field. The GraphQL specification then makes the whole
+ * `data` entry null. The errors that the failing fields recorded are unaffected.
+ */
+internal suspend fun <Data : JsonElement> resolveOperationRoot(block: suspend () -> Data): Data? = try {
+    block()
+} catch (_: NonNullPropagationException) {
+    null
+}
+
+/** Resolves [RequestSelection.children] one at a time, in order, and collects their response fields. */
+internal suspend fun RequestSelection.resolveFieldsSerially(
+    resolveChild: suspend (RequestSelection) -> JsonElement?,
+): JsonObject {
+    val fields = LinkedHashMap<String, JsonElement>()
+    for (child in children) {
+        resolveChild(child)?.let { value -> fields[child.responseName] = value }
+    }
+    return JsonObject(fields)
+}
+
+/**
+ * Resolves the selection set of an object value, one field at a time, and returns the response
+ * object. Generated `gqlSelect` functions call it with their `gqlSelectChild` function.
+ * [resolveChild] returns null for a field that does not apply to the object's runtime type, and the
+ * field is left out of the response.
+ *
+ * Each field follows GraphQL null propagation: a failed or null non-null field makes its nearest
+ * nullable ancestor null. When no nullable ancestor exists below the operation root, the root
+ * selection set itself becomes null. For that case, when this is the operation's root selection set
+ * (its [RequestSelection.path] is empty), this function returns [JsonNull] instead of an object.
+ * Callers then respond with `{"data": null, "errors": [...]}`. The errors were already recorded
+ * through [RequestSelection.error] before the null propagated. For any other selection set, the null
+ * propagates to the enclosing field, as the specification requires.
+ */
+public suspend fun RequestSelection.resolveSelectionSet(
+    resolveChild: suspend (RequestSelection) -> JsonElement?,
+): JsonElement = try {
+    resolveFieldsSerially(resolveChild)
+} catch (failure: NonNullPropagationException) {
+    if (path.isNotEmpty()) throw failure
+    JsonNull
+}
 
 internal fun RequestSelection.takeResolverFailures(): List<ResolverFailure> = buildList {
     (this@takeResolverFailures as? ExecutionSelectionState)?.resolverFailures?.let { failures ->

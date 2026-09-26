@@ -94,6 +94,7 @@ Remove manual generated-source directories and task dependencies. The plugin now
 - The runtime targets the [September 2025 GraphQL specification](https://spec.graphql.org/September2025/).
 - Validation includes field merging, fragments, variables, directives, input objects, interfaces, unions, and OneOf inputs.
 - Nullable boundaries and list indexes produce specification-shaped error paths.
+- A failed non-null field nulls its nearest nullable ancestor, as the specification requires. 2.x omitted the failed field instead. When the null reaches the operation root, `data` is null and the recorded errors remain.
 - HTTP execution results preserve an explicit `data: null` member.
 - GET rejects mutation and subscription operations.
 - Subscription operations require one root response key.
@@ -137,6 +138,7 @@ Read the [2.x-to-3.0 migration guide](migration-2.x-to-3.0.md). Read the [Kotlin
 - Generated resolver methods and input classes keep arguments and input fields in schema declaration order. The code at the 3.0.0 tag sorted them by name, which reordered the positional parameters of resolver overrides written for 2.x. An override still compiles after its parameters are reordered, and Kotlin only warns about the renamed parameters. Two parameters of the same type could therefore swap values silently.
 - `GraphQLExecutionPolicy(fieldSelectionLookahead = true)` and `currentFieldSelection()` let a resolver look ahead at its selected subfields. They replace 2.x's `gqlContext`.
 - JVM `ServerRequestSelection` gains an optional `GraphQLResolverErrorFactory`, and `ServerRequestSelection.forRootField` builds a selection from a separately supplied field, selection set, and arguments, as AWS AppSync resolvers deliver them. List, enum, and null argument literals, and omitted variables, no longer fail.
+- A generated root `gqlSelect` driven through `ServerRequestSelection` returns `JsonNull` when a failed non-null root field makes the whole result null. It no longer throws an internal exception. The `Route.graphQL(block)` compatibility route then responds with `data: null` and the recorded errors instead of one generic error, and a new overload takes a `GraphQLResolverErrorFactory`.
 - kotlinx.serialization moves from 1.10.0-RC to 1.10.0.
 
 ## Release checks

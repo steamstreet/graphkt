@@ -280,7 +280,7 @@ class GraphKtGeneratorTest {
         assertFalse(mapping.contains("setAsContext"), mapping)
         assertFalse(mapping.contains("gqlRequestContext"), mapping)
         assertTrue(mapping.contains("child.resolveFieldValue(nonNull = true)"), mapping)
-        assertTrue(mapping.contains("child.responseName to value"), mapping)
+        assertTrue(mapping.contains("field.resolveSelectionSet { child -> gqlSelectChild(child) }"), mapping)
         assertTrue(mapping.contains("resolveListElement"), mapping)
 
         val server = File(output, "com/steamstreet/graphkt/generated/server/server.kt").readText()

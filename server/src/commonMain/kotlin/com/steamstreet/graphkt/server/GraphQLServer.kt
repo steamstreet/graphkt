@@ -177,20 +177,20 @@ public class GraphQLServer<Context>(
 
             val data = try {
                 val resolver = executorFactory.create(context)
-                when (prepared.operation.type) {
-                    com.steamstreet.graphkt.server.execution.OperationType.QUERY -> resolveQueryFields(
-                        selection = selection,
-                        resolver = resolver,
-                        maximumParallelism = executionPolicy.maximumQueryParallelism,
-                    )
+                resolveOperationRoot {
+                    when (prepared.operation.type) {
+                        com.steamstreet.graphkt.server.execution.OperationType.QUERY -> resolveQueryFields(
+                            selection = selection,
+                            resolver = resolver,
+                            maximumParallelism = executionPolicy.maximumQueryParallelism,
+                        )
 
-                    com.steamstreet.graphkt.server.execution.OperationType.MUTATION ->
-                        resolveMutationFields(selection, resolver)
+                        com.steamstreet.graphkt.server.execution.OperationType.MUTATION ->
+                            selection.resolveFieldsSerially(resolver::resolve)
 
-                    com.steamstreet.graphkt.server.execution.OperationType.SUBSCRIPTION -> error("Subscription executor is not configured")
+                        com.steamstreet.graphkt.server.execution.OperationType.SUBSCRIPTION -> error("Subscription executor is not configured")
+                    }
                 }
-            } catch (failure: NonNullPropagationException) {
-                null
             } catch (failure: CancellationException) {
                 throw failure
             } catch (failure: Exception) {
@@ -269,9 +269,7 @@ public class GraphQLServer<Context>(
             source.collect { event ->
                 val errors = mutableListOf<GraphQLError>()
                 val data = try {
-                    JsonObject(mapOf(rootSelection.responseName to event.resolve()))
-                } catch (failure: NonNullPropagationException) {
-                    null
+                    resolveOperationRoot { JsonObject(mapOf(rootSelection.responseName to event.resolve())) }
                 } catch (failure: CancellationException) {
                     throw failure
                 } catch (failure: Exception) {
@@ -356,16 +354,6 @@ private suspend fun <Context> executeDirectiveHandlers(
     }
 
     return proceed(0)
-}
-
-private suspend fun resolveMutationFields(
-    selection: RequestSelection,
-    resolver: GraphQLRootFieldResolver,
-): JsonObject {
-    val fields = selection.children.mapNotNull { child ->
-        resolver.resolve(child)?.let { value -> child.responseName to value }
-    }
-    return JsonObject(fields.toMap())
 }
 
 private suspend fun resolveQueryFields(

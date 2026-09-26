@@ -300,10 +300,25 @@ val root = ServerRequestSelection.forRootField(
     variables = info.variables.orEmpty(),
     errors = errors,
 )
-val value = QueryResolver(context).gqlSelect(root).jsonObject[info.fieldName]
+// The root is JsonNull when a failed non-null root field made the whole result null.
+val value = (QueryResolver(context).gqlSelect(root) as? JsonObject)?.get(info.fieldName) ?: JsonNull
 ```
 
+Read the root result as described in [Handle null propagation](#handle-null-propagation). Do not call `jsonObject` on it without checking for `JsonNull`.
+
 This replaces a hand-written `RequestSelection` that wraps a `ServerRequestSelection` for the selection set. Such a wrapper delegates `responseName`, `path`, and `forIndex` to a node that has no field name, and it fails on 3.0.
+
+### Handle null propagation
+
+GraphKt 2.x left a failed field out of its parent object and recorded an error. The field was omitted even when the schema declared it non-null, so a response could lack a field that the schema promised.
+
+GraphKt 3.0 follows GraphQL null propagation. A failed field, or a non-null field that resolves to null, records an error at the field's path and becomes null. When the field is non-null, the null propagates to the nearest nullable ancestor field or list element, which becomes null in place of its object. The error path still names the field that failed. For example, with `event: Event` and `title: String!`, a failed `title` makes the response `{"data": {"event": null}, "errors": [{"path": ["event", "title"], ...}]}`.
+
+When no nullable ancestor exists below the operation root, the whole `data` entry becomes null. `GraphQLServer`, the common Ktor route, and the Lambda handler then return `{"data": null, "errors": [...]}` with every recorded error.
+
+JVM code that calls a generated root `gqlSelect` through `ServerRequestSelection` gets the same result. A generated `gqlSelect` returns a `JsonObject`, except that it returns `JsonNull` when a null propagates past a non-null root field. Pass the result and the collected errors to `buildResponse`, which produces `{"data": null, "errors": [...]}`. `gqlSelect` does not throw for a failed field. The `Route.graphQL(block)` compatibility route and the JVM `GraphQLLambda` callback DSL already respond this way.
+
+Because 2.x never produced a null for a failed non-null field, review clients that read non-null fields. Make the schema field nullable where a partial response is still useful.
 
 ## 11. Update Ktor HTTP behavior
 
@@ -358,6 +373,7 @@ Read the [subscription guide](subscriptions.md) for lifecycle and validation rul
 | Ktor callback routes | JVM compatibility entry points remain. New code must use `GraphQLServer`. |
 | Lambda callback DSL | JVM compatibility entry points remain. New code must use `GraphQLServer`. |
 | `GraphQLError.path` | Source-breaking typed path. |
+| Failed non-null fields | 2.x omitted them. 3.0 nulls the nearest nullable ancestor, or all of `data`. |
 | Runtime binary compatibility | Not provided. |
 | Kotlin/Native server code | New in 3.0. |
 

@@ -44,6 +44,12 @@ public fun interface GraphQLResolverErrorFactory {
  * A [RequestSelection] over a GraphQL Java document, for JVM code that drives generated `gqlSelect`
  * functions directly, as 2.x applications did. It does not validate the document; new code should
  * execute requests through `GraphQLServer`.
+ *
+ * A generated root `gqlSelect` returns the response `data`. Resolver failures are recorded in
+ * [errors], and execution follows GraphQL null propagation: a failed non-null field makes its
+ * nearest nullable ancestor null. When no nullable ancestor exists below the root, `gqlSelect`
+ * returns [JsonNull] rather than an object. Pass the result to [buildResponse] with [errors] to
+ * produce `{"data": null, "errors": [...]}`.
  */
 public class ServerRequestSelection(
     public val parent: ServerRequestSelection?,
@@ -137,7 +143,9 @@ public class ServerRequestSelection(
          * field's selection set and its already-resolved arguments separately rather than as one
          * document. AWS AppSync HTTP and Lambda resolvers do this, through `info.selectionSetGraphQL`
          * and `arguments`. Pass the result to a generated root `gqlSelect`, and read the field's
-         * value from the returned object under [fieldName].
+         * value from the returned object under [fieldName]. `gqlSelect` returns [JsonNull] instead
+         * of an object when the field is non-null and a null propagated to it, so the field's value
+         * is null and [errors] holds the failures.
          *
          * @param selectionSet the field's selection set, such as `{ id name }`, or null for a field
          * of a leaf type.
