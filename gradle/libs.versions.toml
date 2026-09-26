@@ -1,6 +1,6 @@
 [versions]
 kotlinx-coroutines = "1.10.2"
-kotlinx-serialization = "1.10.0-RC"
+kotlinx-serialization = "1.10.0"
 kotlin-test = "2.3.0"
 ktor = "3.3.3"
 graphql = "25.0"

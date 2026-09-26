@@ -23,7 +23,13 @@ import graphql.language.UnionTypeDefinition
 import graphql.language.Value
 import graphql.schema.idl.TypeDefinitionRegistry
 
-/** Converts the parser-specific schema registry into the GraphKt schema model. */
+/**
+ * Converts the parser-specific schema registry into the GraphKt schema model.
+ *
+ * Types, fields, and directives are sorted so that generated output is stable. Arguments and input
+ * fields are not: they keep their schema declaration order, because generated resolver methods and
+ * input constructors take them positionally, and that is the order a schema's author writes them in.
+ */
 internal class SchemaNormalizer {
     fun normalize(registry: TypeDefinitionRegistry): SchemaModel {
         val schemaTypes = LinkedHashMap<String, SchemaType>()
@@ -40,7 +46,7 @@ internal class SchemaNormalizer {
                             name = field.name,
                             description = field.description?.content,
                             type = field.type.toTypeRef(),
-                            arguments = field.inputValueDefinitions.map { it.toInputValue() }.sortedBy { it.name },
+                            arguments = field.inputValueDefinitions.map { it.toInputValue() },
                             directives = field.directives.toDirectiveUses(),
                         )
                     }.sortedBy { it.name },
@@ -56,7 +62,7 @@ internal class SchemaNormalizer {
                             name = field.name,
                             description = field.description?.content,
                             type = field.type.toTypeRef(),
-                            arguments = field.inputValueDefinitions.map { it.toInputValue() }.sortedBy { it.name },
+                            arguments = field.inputValueDefinitions.map { it.toInputValue() },
                             directives = field.directives.toDirectiveUses(),
                         )
                     }.sortedBy { it.name },
@@ -86,7 +92,7 @@ internal class SchemaNormalizer {
                     name = definition.name,
                     description = definition.description?.content,
                     directives = definition.directives.toDirectiveUses(),
-                    fields = definition.inputValueDefinitions.map { it.toInputValue() }.sortedBy { it.name },
+                    fields = definition.inputValueDefinitions.map { it.toInputValue() },
                 )
 
                 is ScalarTypeDefinition -> ScalarType(
@@ -121,7 +127,7 @@ internal class SchemaNormalizer {
                 DirectiveDefinition(
                     name = definition.name,
                     description = definition.description?.content,
-                    arguments = definition.inputValueDefinitions.map { it.toInputValue() }.sortedBy { it.name },
+                    arguments = definition.inputValueDefinitions.map { it.toInputValue() },
                     repeatable = definition.isRepeatable,
                     locations = definition.directiveLocations
                         .mapTo(linkedSetOf()) { DirectiveLocation.valueOf(it.name) },

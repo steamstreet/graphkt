@@ -47,14 +47,37 @@ For multiple schemas, add files or a directory to `schemaFiles`. GraphKt merges 
 
 ## 2. Update runtime dependencies
 
+GraphKt 3.0 publishes under a new Maven group. Through 2.x the artifacts published as `com.steamstreet:graphkt-<module>`. From 3.0 on they publish as `com.steamstreet.graphkt:<module>`:
+
+| 2.x coordinate | 3.0 coordinate |
+|---|---|
+| `com.steamstreet:graphkt-common-runtime` | `com.steamstreet.graphkt:common-runtime` |
+| `com.steamstreet:graphkt-client` | `com.steamstreet.graphkt:client` |
+| `com.steamstreet:graphkt-client-ktor` | `com.steamstreet.graphkt:client-ktor` |
+| `com.steamstreet:graphkt-client-direct` | `com.steamstreet.graphkt:client-direct` |
+| `com.steamstreet:graphkt-client-fetch` | `com.steamstreet.graphkt:client-fetch` |
+| `com.steamstreet:graphkt-server` | `com.steamstreet.graphkt:server` |
+| `com.steamstreet:graphkt-server-ktor` | `com.steamstreet.graphkt:server-ktor` |
+| `com.steamstreet:graphkt-server-lambda` | `com.steamstreet.graphkt:server-lambda` |
+| `com.steamstreet:graphkt-code-generator` | `com.steamstreet.graphkt:code-generator` |
+| `com.steamstreet:graphkt-gradle-plugin` | `com.steamstreet.graphkt:gradle-plugin` |
+
+Target-specific artifacts follow the same rule. For example, `graphkt-server-jvm` becomes `com.steamstreet.graphkt:server-jvm`, and `graphkt-client-ktor-iosarm64` becomes `com.steamstreet.graphkt:client-ktor-iosarm64`. Gradle selects these from the module metadata, so depend on the module coordinate and not on a target artifact.
+
+The plugin ID stays `com.steamstreet.graphkt`, so `plugins { id("com.steamstreet.graphkt") version "3.0.1" }` needs only the version change. A build that puts the plugin on the classpath with `buildscript { dependencies { classpath(...) } }` must use `com.steamstreet.graphkt:gradle-plugin`.
+
+Gradle does not treat the old and new coordinates as one module. Remove every 2.x coordinate, including any in version catalogs and dependency locks. A build that keeps one resolves both versions side by side, and the duplicate classes fail at compile time or at run time.
+
+3.0.1 is the first published 3.x release. The `v3.0.0` tag exists, but 3.0.0 was never published to Maven Central.
+
 If the application has Kotlin Multiplatform targets, use runtime artifacts in `commonMain`:
 
 ```kotlin
 kotlin {
     sourceSets {
         commonMain.dependencies {
-            implementation("com.steamstreet:graphkt-client-ktor:3.0.0")
-            implementation("com.steamstreet:graphkt-server:3.0.0")
+            implementation("com.steamstreet.graphkt:client-ktor:3.0.1")
+            implementation("com.steamstreet.graphkt:server:3.0.1")
         }
     }
 }
@@ -125,6 +148,30 @@ class QueryResolver(
 ```
 
 Generated resolver methods contain only schema arguments. They do not receive a `ResolverContext` or transport request.
+
+Generated resolver methods and input classes list arguments and input fields in schema declaration order, as 2.x did. Keep override parameters in the same order as the schema.
+
+### Replace `gqlContext` lookahead
+
+GraphKt 2.x resolvers can read `gqlContext.get().children` to see which subfields a request selected. GraphKt 3.0 removes `gqlContext`. Call `currentFieldSelection()` from the resolver method, and enable lookahead in the execution policy:
+
+```kotlin
+val server = graphKtServer(
+    query = ResolverFactory { context -> QueryResolver(context) },
+    executionPolicy = GraphQLExecutionPolicy(fieldSelectionLookahead = true),
+)
+
+class QueryResolver(private val context: RequestContext) : Query {
+    override suspend fun search(query: String): SearchResults {
+        val requested = currentFieldSelection()?.children.orEmpty().map { it.name }.toSet()
+        return SearchResults(
+            events = if ("events" in requested) context.events.search(query) else emptyList(),
+        )
+    }
+}
+```
+
+Lookahead is off by default because it adds a coroutine context switch to every field. With lookahead off, `currentFieldSelection()` returns null. The JVM compatibility selection, `ServerRequestSelection`, always exposes the selection.
 
 The server constructs one root resolver tree for each valid operation. Small request-scoped resolver objects are the expected design.
 
@@ -231,6 +278,33 @@ val server = graphKtServer(
 
 Do not return secrets, database text, file paths, or stack traces from the mapper.
 
+JVM code that still calls generated `gqlSelect` functions through `ServerRequestSelection` records the same generic error. 2.x recorded the exception message and a `stacktrace` extension. To restore that behavior where errors never reach an untrusted client, pass an error factory:
+
+```kotlin
+val selection = ServerRequestSelection(
+    parent = null,
+    variables = variables,
+    node = parseGraphQLOperation(query).selectionSet,
+    errors = errors,
+    errorFactory = GraphQLResolverErrorFactory.WithExceptionDetails,
+)
+```
+
+`ServerRequestSelection.forRootField` builds a selection for one root field when the transport supplies the field's selection set and resolved arguments separately. AWS AppSync HTTP and Lambda resolvers deliver requests this way:
+
+```kotlin
+val root = ServerRequestSelection.forRootField(
+    fieldName = info.fieldName,
+    selectionSet = info.selectionSetGraphQL,
+    arguments = arguments,
+    variables = info.variables.orEmpty(),
+    errors = errors,
+)
+val value = QueryResolver(context).gqlSelect(root).jsonObject[info.fieldName]
+```
+
+This replaces a hand-written `RequestSelection` that wraps a `ServerRequestSelection` for the selection set. Such a wrapper delegates `responseName`, `path`, and `forIndex` to a node that has no field name, and it fails on 3.0.
+
 ## 11. Update Ktor HTTP behavior
 
 POST requests must use UTF-8 `application/json`. The Ktor client now sends a JSON request envelope.
@@ -278,7 +352,9 @@ Read the [subscription guide](subscriptions.md) for lifecycle and validation rul
 | Generated resolver interfaces | Source-breaking. |
 | `GraphQL` Gradle extension | Retained as a deprecated alias. |
 | Manual generated-source wiring | Remove it. |
+| Maven coordinates | Changed from `com.steamstreet:graphkt-<module>` to `com.steamstreet.graphkt:<module>`. |
 | `gqlRequestContext()` | Removed from the 3.0 execution model. |
+| `gqlContext` lookahead | Replaced by `currentFieldSelection()` with `fieldSelectionLookahead` enabled. |
 | Ktor callback routes | JVM compatibility entry points remain. New code must use `GraphQLServer`. |
 | Lambda callback DSL | JVM compatibility entry points remain. New code must use `GraphQLServer`. |
 | `GraphQLError.path` | Source-breaking typed path. |

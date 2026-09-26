@@ -86,7 +86,7 @@ Generated client and server code supports Kotlin/Native. Client-only projects ca
   - Core runtime modules: JVM, JS, iOS, macOS, Linux, and Windows MinGW
   - `client-fetch`: JS only
   - `server-lambda`, generator, and Gradle plugin: JVM only
-- **Published to**: Maven Central as `com.steamstreet:graphkt-*`
+- **Published to**: Maven Central as `com.steamstreet.graphkt:<module>`, with `<module>-<target>` for each Kotlin target and the plugin as `com.steamstreet.graphkt:gradle-plugin`
 
 ## Convention Plugins
 
@@ -95,3 +95,25 @@ Two buildSrc convention plugins standardize module configuration:
 - `graphkt.jvm-conventions` - For JVM-only modules
 
 Both apply serialization, publishing configuration, and Dokka documentation.
+
+## Publishing coordinates
+
+Every artifact publishes under the group `com.steamstreet.graphkt`, which the root build sets for all projects. Artifact IDs are the module names that Gradle and the Kotlin plugin assign: `server` for a module's metadata publication, `server-jvm` and `server-linuxarm64` for its targets. Do not rewrite `artifactId` anywhere. The Kotlin plugin assigns target names from its own `afterEvaluate`, so a rewrite applied in a publication block reaches the metadata publication and misses the targets. That split the awskt 3.0.0 namespace on Central, where it cannot be withdrawn.
+
+The plugin ID `com.steamstreet.graphkt` gives the marker `com.steamstreet.graphkt:com.steamstreet.graphkt.gradle.plugin`, which points at `com.steamstreet.graphkt:gradle-plugin`. `gradle-plugin` is an ordinary subproject, so it publishes with the rest of the release.
+
+Through 2.x the artifacts published as `com.steamstreet:graphkt-<module>`. Those coordinates remain on Central and are not maintained.
+
+## Releasing
+
+Run `scripts/release.sh` from a release branch such as `3.0.x`. Nebula derives the version from the latest tag, so a patch release is the default and `--scope minor` or `--scope major` overrides it. The script runs a clean `check` and publishes to a scratch repository. It refuses any coordinate outside `com.steamstreet.graphkt`. It then uploads, tags, publishes the deployment, and confirms that the artifacts answer on `repo1`. `--dry-run` stops after the coordinate check, before anything is uploaded or tagged.
+
+Do not release with `./gradlew final` alone. It closes the staging repository but does not publish it. The deployment stops at `VALIDATED`, and `final` exits 0 having shipped nothing. Publish a stalled deployment at https://central.sonatype.com/publishing/deployments.
+
+The script reads `mavenCentralUsername`, `mavenCentralPassword`, and the `signing.*` properties from `~/.gradle/gradle.properties`.
+
+To inspect the publications without touching `~/.m2`, publish to a scratch repository:
+
+```bash
+./gradlew publishToMavenLocal -Dmaven.repo.local=/tmp/graphkt-m2
+```

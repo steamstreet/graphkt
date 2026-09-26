@@ -133,6 +133,50 @@ class GraphQLServerExecutionTest {
     }
 
     @Test
+    fun `exposes the resolving field selection when lookahead is enabled`() = runTest {
+        val seen = mutableListOf<String>()
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, node ->
+                node.resolveFieldValue(nonNull = false) {
+                    val selection = currentFieldSelection()
+                    seen += "${selection?.responseName}:${selection?.children?.map { it.responseName }}"
+                    selectUser(node)
+                }
+            },
+            executionPolicy = GraphQLExecutionPolicy(fieldSelectionLookahead = true),
+        )
+
+        val response = server.execute(
+            GraphQLRequest("{ profile: node(id: \"1\") { id ... on User { label: name } } }"),
+            Unit,
+        )
+
+        assertNull(response.errors)
+        assertEquals(listOf("profile:[id, label]"), seen)
+        assertNull(currentFieldSelection())
+    }
+
+    @Test
+    fun `does not expose the field selection by default`() = runTest {
+        var selection: RequestSelection? = null
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, node ->
+                node.resolveFieldValue(nonNull = false) {
+                    selection = currentFieldSelection()
+                    selectUser(node)
+                }
+            },
+        )
+
+        val response = server.execute(GraphQLRequest("{ node(id: \"1\") { id } }"), Unit)
+
+        assertNull(response.errors)
+        assertNull(selection)
+    }
+
+    @Test
     fun `propagates a non-null child failure to its nullable parent`() = runTest {
         val server = GraphQLServer(
             schema = testSchema(),

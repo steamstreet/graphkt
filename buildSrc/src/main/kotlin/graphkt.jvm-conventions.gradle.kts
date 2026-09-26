@@ -26,16 +26,30 @@ val javadocJar: TaskProvider<Jar> by tasks.registering(Jar::class) {
 }
 
 publishing {
-    publications.create<MavenPublication>("maven") {
-        artifact(tasks.findByName("javadocJar"))
-        groupId = "com.steamstreet"
+    // `java-gradle-plugin` creates its own `pluginMaven` publication from the `java` component. A
+    // second one here would publish the same coordinates twice, so it is only created for plain
+    // libraries. This runs after evaluation so that it does not depend on the order in which a build
+    // script applies the two plugins.
+    afterEvaluate {
+        if (!pluginManager.hasPlugin("java-gradle-plugin")) {
+            publications.create<MavenPublication>("maven") {
+                from(components["java"])
+            }
+        }
+    }
 
-        from(components["java"])
+    // Group and artifactId are inherited: `com.steamstreet.graphkt` from the root project and the
+    // module's own name.
+    publications.withType<MavenPublication>().configureEach {
+        // A plugin marker publication carries only a POM that points at the plugin's implementation.
+        if (!name.endsWith("PluginMarkerMaven")) {
+            artifact(javadocJar)
+        }
 
         pom {
             name.set("GraphKT: ${project.name}")
             description.set(project.description)
-            url.set("https://github.com/steamstreet/awskt")
+            url.set("https://github.com/steamstreet/graphkt")
 
             licenses {
                 license {
@@ -50,7 +64,7 @@ publishing {
                 }
             }
             scm {
-                url.set("https://github.com/steamstreet/awskt")
+                url.set("https://github.com/steamstreet/graphkt")
             }
         }
     }
@@ -62,4 +76,9 @@ signing {
 
 tasks.withType<Sign> {
     onlyIf { project.hasProperty("signing.keyId") }
+}
+
+val signingTasks = tasks.withType<Sign>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+    dependsOn(signingTasks)
 }

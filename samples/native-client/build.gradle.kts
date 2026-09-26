@@ -30,7 +30,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                api("com.steamstreet:graphkt-client-ktor:$graphKtVersion")
+                api("com.steamstreet.graphkt:client-ktor:$graphKtVersion")
             }
         }
         commonTest {

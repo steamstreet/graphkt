@@ -1,8 +1,21 @@
-# GraphKt 3.0.0 release notes
+# GraphKt 3.0.1 release notes
 
 Status: Unreleased
 
 GraphKt 3.0 is a breaking release. It adds a common GraphQL server engine and generated Kotlin/Native server APIs.
+
+3.0.1 is the first published 3.x release. The `v3.0.0` tag exists, but 3.0.0 was never published to Maven Central. 3.0.1 contains everything below, plus the changes in [Changes since the 3.0.0 tag](#changes-since-the-300-tag).
+
+## Maven coordinates
+
+GraphKt now publishes under the Maven group `com.steamstreet.graphkt`, and artifacts no longer carry a `graphkt-` prefix:
+
+```kotlin
+implementation("com.steamstreet.graphkt:client-ktor:3.0.1")
+implementation("com.steamstreet.graphkt:server:3.0.1")
+```
+
+Through 2.x the artifacts published as `com.steamstreet:graphkt-<module>`. Those coordinates remain on Maven Central and do not receive 3.x releases. The plugin ID stays `com.steamstreet.graphkt`. The plugin implementation publishes as `com.steamstreet.graphkt:gradle-plugin`. The [migration guide](migration-2.x-to-3.0.md#2-update-runtime-dependencies) lists every coordinate.
 
 ## Highlights
 
@@ -118,6 +131,14 @@ GraphKt 3.0 does not provide source or binary compatibility with 2.x generated s
 
 Read the [2.x-to-3.0 migration guide](migration-2.x-to-3.0.md). Read the [Kotlin/Native guide](native.md) for target setup and sample commands.
 
+## Changes since the 3.0.0 tag
+
+- Artifacts publish under `com.steamstreet.graphkt`, as described in [Maven coordinates](#maven-coordinates).
+- Generated resolver methods and input classes keep arguments and input fields in schema declaration order. The code at the 3.0.0 tag sorted them by name, which reordered the positional parameters of resolver overrides written for 2.x. An override still compiles after its parameters are reordered, and Kotlin only warns about the renamed parameters. Two parameters of the same type could therefore swap values silently.
+- `GraphQLExecutionPolicy(fieldSelectionLookahead = true)` and `currentFieldSelection()` let a resolver look ahead at its selected subfields. They replace 2.x's `gqlContext`.
+- JVM `ServerRequestSelection` gains an optional `GraphQLResolverErrorFactory`, and `ServerRequestSelection.forRootField` builds a selection from a separately supplied field, selection set, and arguments, as AWS AppSync resolvers deliver them. List, enum, and null argument literals, and omitted variables, no longer fail.
+- kotlinx.serialization moves from 1.10.0-RC to 1.10.0.
+
 ## Release checks
 
 Before the final release:
@@ -127,3 +148,4 @@ Before the final release:
 3. Run the host-compatible tests in `samples/native-client`.
 4. Run the host-compatible tests in `samples/native-direct`.
 5. Run two release candidates without a public API change.
+6. Run `scripts/release.sh --dry-run`, which also checks that every published coordinate is under `com.steamstreet.graphkt`.

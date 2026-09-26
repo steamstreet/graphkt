@@ -25,7 +25,7 @@ kotlin {
     sourceSets {
         commonMain {
             dependencies {
-                api("com.steamstreet:graphkt-client-direct:$graphKtVersion")
+                api("com.steamstreet.graphkt:client-direct:$graphKtVersion")
             }
         }
         commonTest {

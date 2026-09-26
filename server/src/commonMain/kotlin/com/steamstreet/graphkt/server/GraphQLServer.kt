@@ -57,9 +57,17 @@ public class GraphQLOperationNotAllowedException(
     public val operationType: GraphQLOperationType,
 ) : IllegalArgumentException("Operation type '$operationType' is not allowed by this transport")
 
-/** Controls how the common executor schedules fields. */
+/**
+ * Controls how the common executor schedules fields.
+ *
+ * @property maximumQueryParallelism the number of query-root fields that resolve concurrently.
+ * @property fieldSelectionLookahead exposes each field's selection to its resolver through
+ * [currentFieldSelection]. It is off by default because it costs every field a coroutine context
+ * switch, which measured about a quarter of the execution time of a 100-field request.
+ */
 public data class GraphQLExecutionPolicy(
     val maximumQueryParallelism: Int = 16,
+    val fieldSelectionLookahead: Boolean = false,
 ) {
     init {
         require(maximumQueryParallelism > 0) { "maximumQueryParallelism must be greater than zero" }
@@ -164,9 +172,7 @@ public class GraphQLServer<Context>(
                 schema = schema,
                 prepared = prepared,
                 onInputErrors = errors::addAll,
-                directiveExecutor = FieldDirectiveExecutor { field, block ->
-                    executeDirectiveHandlers(context, field, directiveHandlers, block)
-                },
+                directiveExecutor = fieldExecutor(context),
             )
 
             val data = try {
@@ -239,9 +245,7 @@ public class GraphQLServer<Context>(
                 schema = schema,
                 prepared = prepared,
                 onInputErrors = preparationErrors::addAll,
-                directiveExecutor = FieldDirectiveExecutor { field, block ->
-                    executeDirectiveHandlers(context, field, directiveHandlers, block)
-                },
+                directiveExecutor = fieldExecutor(context),
             )
             if (preparationErrors.isNotEmpty()) {
                 emit(GraphQLResponseEnvelope(errors = preparationErrors))
@@ -287,6 +291,19 @@ public class GraphQLServer<Context>(
             }
         }
     }
+
+    private fun fieldExecutor(context: Context): FieldDirectiveExecutor =
+        if (executionPolicy.fieldSelectionLookahead) {
+            FieldDirectiveExecutor { field, block ->
+                withContext(GraphQLFieldSelection(field)) {
+                    executeDirectiveHandlers(context, field, directiveHandlers, block)
+                }
+            }
+        } else {
+            FieldDirectiveExecutor { field, block ->
+                executeDirectiveHandlers(context, field, directiveHandlers, block)
+            }
+        }
 }
 
 private suspend fun <Result> withGraphQLRequestScope(

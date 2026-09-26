@@ -106,6 +106,54 @@ class GraphKtGeneratorTest {
     }
 
     @Test
+    fun `keeps arguments and input fields in schema declaration order`(@TempDir tempDir: File) {
+        // Resolver methods and input constructors take these positionally. Sorting them by name turned
+        // `logs(start, end)` into `logs(end, start)`, and an override written against the schema still
+        // compiles, since Kotlin only warns when an override renames its parameters, so the two values
+        // silently changed places.
+        val schema = File(tempDir, "schema.graphql").apply {
+            writeText(
+                """
+                input Range {
+                    start: String!
+                    end: String!
+                }
+
+                type Query {
+                    logs(start: String!, end: String!): [String!]!
+                    within(range: Range!, after: String): [String!]!
+                }
+                """.trimIndent(),
+            )
+        }
+        val commonOutput = File(tempDir, "common")
+        val serverOutput = File(tempDir, "server")
+
+        val result = GraphKtGenerator().generate(
+            GenerationRequest(
+                schemaFiles = listOf(schema),
+                packageName = "com.steamstreet.graphkt.generated",
+                outputs = GenerationOutputs(common = commonOutput, server = serverOutput),
+            ),
+        )
+
+        val services = File(serverOutput, "com/steamstreet/graphkt/generated/server/services.kt").readText()
+        val logs = services.lines().single { "fun logs(" in it }
+        assertTrue(logs.indexOf("start:") < logs.indexOf("end:"), logs)
+        val within = services.lines().single { "fun within(" in it }
+        assertTrue(within.indexOf("range:") < within.indexOf("after:"), within)
+
+        val common = File(commonOutput, "com/steamstreet/graphkt/generated/common.kt").readText()
+        val range = common.substringAfter("class Range(")
+        assertTrue(range.indexOf("start:") < range.indexOf("end:"), range)
+
+        assertTrue(
+            compileKotlinFiles(result.generatedFiles, tempDir),
+            "Generated sources must compile together",
+        )
+    }
+
+    @Test
     fun `generates compilable nested list variables`(@TempDir tempDir: File) {
         val schema = File(tempDir, "schema.graphql").apply {
             writeText(

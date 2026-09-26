@@ -8,13 +8,13 @@ Use one of these runtime artifacts in `commonMain`:
 
 | Artifact | Purpose |
 |---|---|
-| `graphkt-client-ktor` | Send query and mutation requests with a Ktor client engine. |
-| `graphkt-client-direct` | Run queries, mutations, and subscriptions against an in-process server. |
-| `graphkt-server` | Parse, validate, and execute requests without a transport. |
-| `graphkt-server-ktor` | Add GET and POST GraphQL routes to a Ktor server. |
-| `graphkt-common-runtime` | Use request, response, error, and optional-input models. |
+| `client-ktor` | Send query and mutation requests with a Ktor client engine. |
+| `client-direct` | Run queries, mutations, and subscriptions against an in-process server. |
+| `server` | Parse, validate, and execute requests without a transport. |
+| `server-ktor` | Add GET and POST GraphQL routes to a Ktor server. |
+| `common-runtime` | Use request, response, error, and optional-input models. |
 
-The `graphkt-client-direct` artifact exports the client and server runtime dependencies.
+The `client-direct` artifact exports the client and server runtime dependencies.
 
 ## Configure the build
 
@@ -28,7 +28,7 @@ pluginManagement {
     }
 
     plugins {
-        id("com.steamstreet.graphkt") version "3.0.0"
+        id("com.steamstreet.graphkt") version "3.0.1"
     }
 }
 ```
@@ -50,7 +50,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("com.steamstreet:graphkt-client-direct:3.0.0")
+            implementation("com.steamstreet.graphkt:client-direct:3.0.1")
         }
     }
 }

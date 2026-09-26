@@ -23,7 +23,6 @@ kotlin {
 publishing {
     publications {
         withType<MavenPublication> {
-            artifactId = "graphkt-${artifactId}"
             pom {
                 description.set("GraphKt server implementation for the Lambda API Gateway proxy.")
             }

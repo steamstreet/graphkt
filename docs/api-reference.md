@@ -4,18 +4,20 @@ This reference describes the stable public concepts for the GraphKt 3.0 line. Ge
 
 ## Artifact and platform matrix
 
+Every artifact publishes under the Maven group `com.steamstreet.graphkt`, for example `com.steamstreet.graphkt:server:3.0.1`. Each multiplatform artifact also publishes one artifact for each target, such as `server-jvm` and `server-linuxarm64`. Gradle selects the target artifact from the module metadata.
+
 | Artifact | Platforms | Public purpose |
 |---|---|---|
-| `graphkt-common-runtime` | JVM, JavaScript, Apple, Linux, MinGW | Request, response, error, ID, and optional-input models. |
-| `graphkt-client` | JVM, JavaScript, Apple, Linux, MinGW | One-shot and subscription client contracts. |
-| `graphkt-client-ktor` | JVM, JavaScript, Apple, Linux, MinGW | Ktor query and mutation transport. |
-| `graphkt-client-direct` | JVM, JavaScript, Apple, Linux, MinGW | In-process query, mutation, and subscription transport. |
-| `graphkt-client-fetch` | JavaScript | Browser query and mutation transport. |
-| `graphkt-server` | JVM, JavaScript, Apple, Linux, MinGW | Parser, validator, request scope, and execution engine. |
-| `graphkt-server-ktor` | JVM, JavaScript, Apple, Linux, MinGW | Ktor GET and POST route adapter. |
-| `graphkt-server-lambda` | JVM | API Gateway v2 HTTP adapter. |
-| `graphkt-code-generator` | JVM | Programmatic schema generator. |
-| `graphkt-gradle-plugin` | JVM | Gradle generation and source-set integration. |
+| `common-runtime` | JVM, JavaScript, Apple, Linux, MinGW | Request, response, error, ID, and optional-input models. |
+| `client` | JVM, JavaScript, Apple, Linux, MinGW | One-shot and subscription client contracts. |
+| `client-ktor` | JVM, JavaScript, Apple, Linux, MinGW | Ktor query and mutation transport. |
+| `client-direct` | JVM, JavaScript, Apple, Linux, MinGW | In-process query, mutation, and subscription transport. |
+| `client-fetch` | JavaScript | Browser query and mutation transport. |
+| `server` | JVM, JavaScript, Apple, Linux, MinGW | Parser, validator, request scope, and execution engine. |
+| `server-ktor` | JVM, JavaScript, Apple, Linux, MinGW | Ktor GET and POST route adapter. |
+| `server-lambda` | JVM | API Gateway v2 HTTP adapter. |
+| `code-generator` | JVM | Programmatic schema generator. |
+| `gradle-plugin` | JVM | Gradle generation and source-set integration. |
 
 Apple includes the configured iOS and macOS targets. Linux includes X64 and Arm64. MinGW uses X64.
 
@@ -210,6 +212,8 @@ The loader combines unique keys from concurrent fields. Its cache and cleanup ac
 ## Execution policy
 
 `GraphQLExecutionPolicy.maximumQueryParallelism` sets the maximum concurrent query-root fields. Its default value is 16.
+
+`GraphQLExecutionPolicy.fieldSelectionLookahead` exposes each field's `RequestSelection` to its resolver. A resolver method reads it with `currentFieldSelection()`, and uses the selection's `children` to see the subfields that the request selected. The default value is false, because the option adds a coroutine context switch to every field. With the option off, `currentFieldSelection()` returns null.
 
 Mutation-root fields run serially in document order. Subscription operations select one root response key.
 

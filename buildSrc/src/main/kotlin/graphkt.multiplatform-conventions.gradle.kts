@@ -25,8 +25,12 @@ val javadocJar: TaskProvider<Jar> by tasks.registering(Jar::class) {
 
 publishing {
     publications.withType<MavenPublication> {
+        // Group and artifactId are inherited: `com.steamstreet.graphkt` from the root project, and the
+        // Kotlin plugin's own names — `<module>` for the metadata publication and `<module>-<target>`
+        // for each target. Nothing may rewrite them here. The Kotlin plugin assigns the target names
+        // from its own `afterEvaluate`, so a rewrite applied in this block reaches the metadata
+        // publication and misses the targets, which is how awskt 3.0.0 shipped a split namespace.
         artifact(tasks.findByName("javadocJar"))
-        groupId = "com.steamstreet"
 
         pom {
             name.set("GraphKT: ${project.name}")

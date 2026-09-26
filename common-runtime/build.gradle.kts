@@ -38,7 +38,6 @@ kotlin {
 publishing {
     publications {
         withType<MavenPublication> {
-            artifactId = "graphkt-${artifactId}"
             pom {
                 description.set("Common runtime used for clients and servers of GraphKt")
             }
