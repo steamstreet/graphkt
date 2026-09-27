@@ -15,6 +15,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -222,16 +223,153 @@ class ServerRequestSelectionTest {
         assertEquals(JsonObject(mapOf("maybeEvent" to JsonNull)), QueryResolver().gqlSelect(root))
         assertEquals(1, errors.size)
     }
+
+    @Test
+    fun rootFieldSelectionKeysNestedFieldsByFieldName() = runTest {
+        val errors = mutableListOf<GraphQLError>()
+        val root = ServerRequestSelection.forRootField(
+            fieldName = "maybeEvent",
+            selectionSet = "{ ident: id place: venue { called: name } }",
+            arguments = emptyMap(),
+            variables = emptyMap(),
+            errors = errors,
+        )
+
+        val data = QueryResolver().gqlSelect(root)
+
+        // AppSync reads each field by its name and applies the aliases itself.
+        assertEquals(
+            JsonObject(
+                mapOf(
+                    "maybeEvent" to JsonObject(
+                        mapOf(
+                            "id" to JsonPrimitive("e1"),
+                            "venue" to JsonObject(mapOf("name" to JsonPrimitive("The Venue"))),
+                        ),
+                    ),
+                ),
+            ),
+            data,
+        )
+        assertEquals(emptyList(), errors)
+    }
+
+    @Test
+    fun rootFieldSelectionKeepsAliasesInErrorPaths() = runTest {
+        val errors = mutableListOf<GraphQLError>()
+        val root = ServerRequestSelection.forRootField(
+            fieldName = "events",
+            selectionSet = "{ heading: title }",
+            arguments = emptyMap(),
+            variables = emptyMap(),
+            errors = errors,
+        )
+
+        assertEquals(JsonObject(mapOf("events" to JsonArray(listOf(JsonNull)))), QueryResolver().gqlSelect(root))
+        assertEquals(
+            listOf(
+                GraphQLPathSegment.Field("events"),
+                GraphQLPathSegment.Index(0),
+                GraphQLPathSegment.Field("heading"),
+            ),
+            errors.single().path,
+        )
+    }
+
+    @Test
+    fun documentSelectionKeysFieldsByAlias() = runTest {
+        val root = ServerRequestSelection(
+            parent = null,
+            variables = emptyMap(),
+            node = parseGraphQLOperation("{ show: maybeEvent { ident: id place: venue { called: name } } }").selectionSet,
+            errors = mutableListOf(),
+        )
+
+        assertEquals(
+            JsonObject(
+                mapOf(
+                    "show" to JsonObject(
+                        mapOf(
+                            "ident" to JsonPrimitive("e1"),
+                            "place" to JsonObject(mapOf("called" to JsonPrimitive("The Venue"))),
+                        ),
+                    ),
+                ),
+            ),
+            QueryResolver().gqlSelect(root),
+        )
+    }
+
+    @Test
+    fun recordsATodoResolverAsAFieldError() = runTest {
+        val errors = mutableListOf<GraphQLError>()
+        val root = ServerRequestSelection.forRootField(
+            fieldName = "maybeEvent",
+            selectionSet = "{ id pending }",
+            arguments = emptyMap(),
+            variables = emptyMap(),
+            errors = errors,
+            errorFactory = GraphQLResolverErrorFactory.WithExceptionDetails,
+        )
+
+        assertEquals(
+            JsonObject(
+                mapOf("maybeEvent" to JsonObject(mapOf("id" to JsonPrimitive("e1"), "pending" to JsonNull))),
+            ),
+            QueryResolver().gqlSelect(root),
+        )
+        assertEquals("An operation is not implemented: pending", errors.single().message)
+        assertEquals(
+            listOf(GraphQLPathSegment.Field("maybeEvent"), GraphQLPathSegment.Field("pending")),
+            errors.single().path,
+        )
+    }
+
+    @Test
+    fun propagatesATodoInANonNullRootField() = runTest {
+        val errors = mutableListOf<GraphQLError>()
+        val root = ServerRequestSelection.forRootField(
+            fieldName = "upcoming",
+            selectionSet = "{ id }",
+            arguments = emptyMap(),
+            variables = emptyMap(),
+            errors = errors,
+        )
+
+        assertEquals(JsonNull, QueryResolver().gqlSelect(root))
+        assertEquals(listOf(GraphQLPathSegment.Field("upcoming")), errors.single().path)
+    }
+
+    @Test
+    fun doesNotRecordAFatalErrorAsAFieldError() = runTest {
+        val errors = mutableListOf<GraphQLError>()
+        val root = ServerRequestSelection.forRootField(
+            fieldName = "maybeEvent",
+            selectionSet = "{ id overflow }",
+            arguments = emptyMap(),
+            variables = emptyMap(),
+            errors = errors,
+        )
+
+        assertFailsWith<StackOverflowError> { QueryResolver().gqlSelect(root) }
+        assertEquals(emptyList(), errors)
+    }
 }
 
 // Mirrors the mapping code that the generator emits for this schema:
 //
-//     type Query { event: Event!  maybeEvent: Event  events: [Event]!  version: String! }
-//     type Event { id: ID!  title: String! }
-private class QueryResolver
+//     type Query { event: Event!  maybeEvent: Event  events: [Event]!  upcoming: Event!  version: String! }
+//     type Event { id: ID!  title: String!  venue: Venue  pending: String  overflow: String }
+//     type Venue { name: String! }
+private class QueryResolver {
+    fun upcoming(): EventResolver = TODO("upcoming")
+}
 private class EventResolver {
     fun title(): String = throw IllegalStateException("title unavailable")
+    fun pending(): String = TODO("pending")
+    fun overflow(): String = throw StackOverflowError()
 }
+private class VenueResolver
 
 private suspend fun QueryResolver.gqlSelectChild(child: RequestSelection): JsonElement? = when (child.name) {
     "event" -> child.resolveFieldValue(nonNull = true) { EventResolver().gqlSelect(child) }
@@ -243,6 +381,7 @@ private suspend fun QueryResolver.gqlSelectChild(child: RequestSelection): JsonE
             },
         )
     }
+    "upcoming" -> child.resolveFieldValue(nonNull = true) { upcoming().gqlSelect(child) }
     "version" -> child.resolveFieldValue(nonNull = true) { JsonPrimitive("3") }
     else -> throw IllegalArgumentException("Unknown field '${child.name}' on Query")
 }
@@ -253,8 +392,19 @@ private suspend fun QueryResolver.gqlSelect(field: RequestSelection): JsonElemen
 private suspend fun EventResolver.gqlSelectChild(child: RequestSelection): JsonElement? = when (child.name) {
     "id" -> child.resolveFieldValue(nonNull = true) { JsonPrimitive("e1") }
     "title" -> child.resolveFieldValue(nonNull = true) { JsonPrimitive(title()) }
+    "venue" -> child.resolveFieldValue(nonNull = false) { VenueResolver().gqlSelect(child) }
+    "pending" -> child.resolveFieldValue(nonNull = false) { JsonPrimitive(pending()) }
+    "overflow" -> child.resolveFieldValue(nonNull = false) { JsonPrimitive(overflow()) }
     else -> throw IllegalArgumentException("Unknown field '${child.name}' on Event")
 }
 
 private suspend fun EventResolver.gqlSelect(field: RequestSelection): JsonElement =
+    field.resolveSelectionSet { child -> gqlSelectChild(child) }
+
+private suspend fun VenueResolver.gqlSelectChild(child: RequestSelection): JsonElement? = when (child.name) {
+    "name" -> child.resolveFieldValue(nonNull = true) { JsonPrimitive("The Venue") }
+    else -> throw IllegalArgumentException("Unknown field '${child.name}' on Venue")
+}
+
+private suspend fun VenueResolver.gqlSelect(field: RequestSelection): JsonElement =
     field.resolveSelectionSet { child -> gqlSelectChild(child) }

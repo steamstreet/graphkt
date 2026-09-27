@@ -50,6 +50,11 @@ public fun interface GraphQLResolverErrorFactory {
  * nearest nullable ancestor null. When no nullable ancestor exists below the root, `gqlSelect`
  * returns [JsonNull] rather than an object. Pass the result to [buildResponse] with [errors] to
  * produce `{"data": null, "errors": [...]}`.
+ *
+ * With [keyByFieldName] false, the default, `gqlSelect` keys each response field by its response
+ * name, which is the alias when the document gives one. With [keyByFieldName] true, every field in
+ * the tree is keyed by its field name instead, for a caller that applies aliases itself.
+ * [forRootField] selections do this. Error paths use response names in both modes.
  */
 public class ServerRequestSelection(
     public val parent: ServerRequestSelection?,
@@ -59,10 +64,14 @@ public class ServerRequestSelection(
     override val typeName: String? = null,
     private val errorFactory: GraphQLResolverErrorFactory = GraphQLResolverErrorFactory.Generic,
     private val pathOverride: List<GraphQLPathSegment>? = null,
+    public val keyByFieldName: Boolean = false,
 ) : RequestSelection {
     override val name: String
         get() = (node as? NamedNode<*>)?.name ?: throw IllegalStateException("Not a named node")
     override val responseName: String
+        get() = if (keyByFieldName) name else documentResponseName
+
+    private val documentResponseName: String
         get() = (node as? Field)?.alias ?: name
     override val children: List<RequestSelection>
         get() {
@@ -74,10 +83,27 @@ public class ServerRequestSelection(
             return selectionSet.selections.flatMap { selection: Selection<*> ->
                 if (selection is InlineFragment) {
                     selection.selectionSet.selections.map {
-                        ServerRequestSelection(this, variables, it, errors, selection.typeCondition?.name, errorFactory)
+                        ServerRequestSelection(
+                            parent = this,
+                            variables = variables,
+                            node = it,
+                            errors = errors,
+                            typeName = selection.typeCondition?.name,
+                            errorFactory = errorFactory,
+                            keyByFieldName = keyByFieldName,
+                        )
                     }
                 } else {
-                    listOf(ServerRequestSelection(this, variables, selection, errors, errorFactory = errorFactory))
+                    listOf(
+                        ServerRequestSelection(
+                            parent = this,
+                            variables = variables,
+                            node = selection,
+                            errors = errors,
+                            errorFactory = errorFactory,
+                            keyByFieldName = keyByFieldName,
+                        ),
+                    )
                 }
             }
         }
@@ -118,6 +144,7 @@ public class ServerRequestSelection(
         typeName = typeName,
         errorFactory = errorFactory,
         pathOverride = path + GraphQLPathSegment.Index(index),
+        keyByFieldName = keyByFieldName,
     )
 
     override fun error(t: Throwable) {
@@ -146,6 +173,15 @@ public class ServerRequestSelection(
          * value from the returned object under [fieldName]. `gqlSelect` returns [JsonNull] instead
          * of an object when the field is non-null and a null propagated to it, so the field's value
          * is null and [errors] holds the failures.
+         *
+         * AppSync applies the aliases of the original request itself: it reads each field of the
+         * returned value by its field name and then renames it. The returned selection therefore
+         * sets [keyByFieldName], so every field below the root is keyed by its field name, as 2.x
+         * did, while error paths keep the aliases. A consequence is that one result cannot serve two
+         * aliases of the same field, such as `first: search(limit: 1) { id }` and
+         * `all: search { id }`: both are keyed `search`, and the one selected last overwrites the
+         * other. AppSync reads the same value for both aliases. Give such fields resolvers of their
+         * own in AppSync, or request them in separate operations.
          *
          * @param selectionSet the field's selection set, such as `{ id name }`, or null for a field
          * of a leaf type.
@@ -176,6 +212,7 @@ public class ServerRequestSelection(
                 node = SelectionSet.newSelectionSet().selection(field).build(),
                 errors = errors,
                 errorFactory = errorFactory,
+                keyByFieldName = true,
             )
         }
     }

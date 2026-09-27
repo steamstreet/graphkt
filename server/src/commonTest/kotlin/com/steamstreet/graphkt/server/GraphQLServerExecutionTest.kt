@@ -254,6 +254,93 @@ class GraphQLServerExecutionTest {
     }
 
     @Test
+    fun `records a TODO resolver as a field error`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, node ->
+                node.resolveFieldValue(nonNull = false) { TODO("not written yet") }
+            },
+        )
+
+        val response = server.execute(GraphQLRequest("{ node(id: \"1\") { id } }"), Unit)
+
+        assertEquals(JsonObject(mapOf("node" to JsonNull)), response.data)
+        assertEquals("Internal Server Error", response.errors?.single()?.message)
+        assertEquals(listOf(GraphQLPathSegment.Field("node")), response.errors?.single()?.path)
+    }
+
+    @Test
+    fun `propagates a TODO in a non-null field to its nullable parent`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, node ->
+                node.resolveFieldValue(nonNull = false) {
+                    selectUser(node, nameFailure = NotImplementedError())
+                }
+            },
+        )
+
+        val response = server.execute(
+            GraphQLRequest("{ profile: node(id: \"1\") { id ... on User { name } } }"),
+            Unit,
+        )
+
+        assertEquals(JsonObject(mapOf("profile" to JsonNull)), response.data)
+        assertEquals(
+            listOf(GraphQLPathSegment.Field("profile"), GraphQLPathSegment.Field("name")),
+            response.errors?.single()?.path,
+        )
+    }
+
+    @Test
+    fun `records a TODO outside field resolution as a request error`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, _ -> TODO() },
+        )
+
+        val response = server.execute(GraphQLRequest("{ node(id: \"1\") { id } }"), Unit)
+
+        assertNull(response.data)
+        assertEquals("Internal Server Error", response.errors?.single()?.message)
+    }
+
+    @Test
+    fun `fails the loads of a batch whose loader is a TODO`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<BatchingContext> { context, node ->
+                node.resolveFieldValue(nonNull = false) {
+                    selectUser(node, name = context.names.load("1") ?: "missing")
+                }
+            },
+        )
+
+        val response = server.execute(
+            GraphQLRequest("{ first: node(id: \"1\") { id } second: node(id: \"2\") { id } }"),
+        ) {
+            BatchingContext(names = batchLoader(BatchLoader { TODO() }))
+        }
+
+        assertEquals(JsonObject(mapOf("first" to JsonNull, "second" to JsonNull)), response.data)
+        assertEquals(2, response.errors?.size)
+    }
+
+    @Test
+    fun `does not convert a fatal error into a GraphQL error`() = runTest {
+        val server = GraphQLServer(
+            schema = testSchema(),
+            query = rootResolver<Unit> { _, node ->
+                node.resolveFieldValue(nonNull = false) { throw FatalTestError() }
+            },
+        )
+
+        assertFailsWith<FatalTestError> {
+            server.execute(GraphQLRequest("{ node(id: \"1\") { id } }"), Unit)
+        }
+    }
+
+    @Test
     fun `rejects a mutation from query-only execution before context construction`() = runTest {
         var contextCalls = 0
         val server = GraphQLServer(
@@ -761,6 +848,9 @@ class GraphQLServerExecutionTest {
         assertTrue(released)
     }
 }
+
+/** Stands in for a fatal [Error], such as `OutOfMemoryError`, which is not available in common code. */
+private class FatalTestError : Error()
 
 private data class BatchingContext(
     val names: RequestBatchLoader<String, String>,

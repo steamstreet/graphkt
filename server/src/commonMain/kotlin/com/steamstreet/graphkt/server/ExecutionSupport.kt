@@ -31,6 +31,15 @@ internal data class ResolverFailure(
 internal class NonNullPropagationException : RuntimeException()
 
 /**
+ * Returns true when a resolver that threw this failed in a way that GraphQL records as a field
+ * error. That covers every [Exception] other than [CancellationException], and [NotImplementedError],
+ * which Kotlin's `TODO()` throws and which 2.x also recorded. Cancellation and every other [Error],
+ * such as `OutOfMemoryError` or `StackOverflowError`, propagate instead.
+ */
+internal fun Throwable.isResolverFailure(): Boolean =
+    (this is Exception && this !is CancellationException) || this is NotImplementedError
+
+/**
  * Runs [block], which resolves the fields of an operation's root selection set, and returns null
  * when a null propagates past a non-null root field. The GraphQL specification then makes the whole
  * `data` entry null. The errors that the failing fields recorded are unaffected.
@@ -154,9 +163,8 @@ private suspend fun RequestSelection.resolveFieldValue(
     } catch (failure: NonNullPropagationException) {
         if (nonNull) throw failure
         JsonNull
-    } catch (failure: CancellationException) {
-        throw failure
-    } catch (failure: Exception) {
+    } catch (failure: Throwable) {
+        if (!failure.isResolverFailure()) throw failure
         error(failure)
         if (nonNull) throw NonNullPropagationException()
         JsonNull

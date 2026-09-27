@@ -24,7 +24,6 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlin.coroutines.cancellation.CancellationException
 
 /** Resolves one selected field on a request-scoped root resolver. */
 public fun interface GraphQLRootFieldResolver {
@@ -191,9 +190,8 @@ public class GraphQLServer<Context>(
                         com.steamstreet.graphkt.server.execution.OperationType.SUBSCRIPTION -> error("Subscription executor is not configured")
                     }
                 }
-            } catch (failure: CancellationException) {
-                throw failure
-            } catch (failure: Exception) {
+            } catch (failure: Throwable) {
+                if (!failure.isResolverFailure()) throw failure
                 errors += errorMapper.map(context, failure, emptyList())
                 null
             }
@@ -255,9 +253,8 @@ public class GraphQLServer<Context>(
             val rootSelection = selection.children.single()
             val source = try {
                 executorFactory.create(context).subscribe(rootSelection)
-            } catch (failure: CancellationException) {
-                throw failure
-            } catch (failure: Exception) {
+            } catch (failure: Throwable) {
+                if (!failure.isResolverFailure()) throw failure
                 emit(
                     GraphQLResponseEnvelope(
                         errors = listOf(errorMapper.map(context, failure, rootSelection.path)),
@@ -270,9 +267,8 @@ public class GraphQLServer<Context>(
                 val errors = mutableListOf<GraphQLError>()
                 val data = try {
                     resolveOperationRoot { JsonObject(mapOf(rootSelection.responseName to event.resolve())) }
-                } catch (failure: CancellationException) {
-                    throw failure
-                } catch (failure: Exception) {
+                } catch (failure: Throwable) {
+                    if (!failure.isResolverFailure()) throw failure
                     errors += errorMapper.map(context, failure, rootSelection.path)
                     null
                 }

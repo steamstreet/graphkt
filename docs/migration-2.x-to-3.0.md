@@ -278,6 +278,8 @@ val server = graphKtServer(
 
 Do not return secrets, database text, file paths, or stack traces from the mapper.
 
+A resolver that calls Kotlin's `TODO()` throws `NotImplementedError`, which is an `Error` rather than an `Exception`. GraphKt records it as a field error and applies null propagation, as 2.x did. Cancellation and other errors, such as `OutOfMemoryError` and `StackOverflowError`, are not recorded. They propagate out of the request.
+
 JVM code that still calls generated `gqlSelect` functions through `ServerRequestSelection` records the same generic error. 2.x recorded the exception message and a `stacktrace` extension. To restore that behavior where errors never reach an untrusted client, pass an error factory:
 
 ```kotlin
@@ -305,6 +307,10 @@ val value = (QueryResolver(context).gqlSelect(root) as? JsonObject)?.get(info.fi
 ```
 
 Read the root result as described in [Handle null propagation](#handle-null-propagation). Do not call `jsonObject` on it without checking for `JsonNull`.
+
+AppSync applies the aliases in the client's request itself. It reads each field of the returned value by its field name. A `forRootField` selection therefore keys every field in the result by its field name, as 2.x did, and ignores the aliases in `selectionSetGraphQL`. Error paths still use the aliases. Other `ServerRequestSelection` instances key fields by alias, as GraphQL execution requires. Pass `keyByFieldName = true` to the constructor to get the AppSync behavior for another selection.
+
+One result cannot serve two aliases of the same field. For example, `first: search(limit: 1) { id }` and `all: search { id }` share the key `search`, and the last one selected overwrites the other. AppSync then returns that value for both aliases. When clients need such aliases, give the nested field its own AppSync resolver.
 
 This replaces a hand-written `RequestSelection` that wraps a `ServerRequestSelection` for the selection set. Such a wrapper delegates `responseName`, `path`, and `forIndex` to a node that has no field name, and it fails on 3.0.
 
@@ -374,6 +380,8 @@ Read the [subscription guide](subscriptions.md) for lifecycle and validation rul
 | Lambda callback DSL | JVM compatibility entry points remain. New code must use `GraphQLServer`. |
 | `GraphQLError.path` | Source-breaking typed path. |
 | Failed non-null fields | 2.x omitted them. 3.0 nulls the nearest nullable ancestor, or all of `data`. |
+| `TODO()` in a resolver | Recorded as a field error, as in 2.x. Other `Error` types propagate. |
+| Aliases through `forRootField` | Keyed by field name for AppSync, as in 2.x. |
 | Runtime binary compatibility | Not provided. |
 | Kotlin/Native server code | New in 3.0. |
 

@@ -9,7 +9,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.CoroutineContext
 
 /** Loads a set of unique keys in one application-defined batch. */
@@ -185,11 +184,9 @@ private class DefaultRequestBatchLoader<K, V>(
             try {
                 val values = loader.load(batch.map(PendingLoad<K, V>::key).distinct())
                 batch.forEach { load -> load.result.complete(values[load.key]) }
-            } catch (failure: CancellationException) {
+            } catch (failure: Throwable) {
                 batch.forEach { load -> load.result.completeExceptionally(failure) }
-                throw failure
-            } catch (failure: Exception) {
-                batch.forEach { load -> load.result.completeExceptionally(failure) }
+                if (!failure.isResolverFailure()) throw failure
             }
         }
     }
