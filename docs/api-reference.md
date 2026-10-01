@@ -185,6 +185,34 @@ val responses: Flow<GraphQLResponseEnvelope> = server.subscribe(request) {
 
 The returned flow is cold. Collection starts request preparation and creates one context and resolver tree.
 
+## Root-field selections
+
+AWS AppSync calls a resolver once for each root field. It supplies the field's selection set and its resolved arguments separately, not as one document. `RequestSelection.forRootField` builds a selection for such a call. Pass the selection to the generated root `gqlSelect`:
+
+```kotlin
+val errors = mutableListOf<GraphQLError>()
+val root = RequestSelection.forRootField(
+    fieldName = info.fieldName,
+    selectionSet = info.selectionSetGraphQL,
+    arguments = arguments,
+    variables = info.variables.orEmpty(),
+    errors = errors,
+    errorFactory = GraphQLResolverErrorFactory.Generic,
+)
+val value = (QueryResolver(context).gqlSelect(root) as? JsonObject)?.get(info.fieldName) ?: JsonNull
+```
+
+The function is in common code. The JVM `ServerRequestSelection.forRootField` has the same contract.
+
+- Each argument reaches the resolver unchanged, through a variable of its own.
+- The result keys every field by its field name, because AppSync applies aliases itself. Error paths use the aliases.
+- An inline fragment's type condition becomes the `typeName` of the fields that it selects.
+- A resolver failure, including `TODO()`, records an error from the `GraphQLResolverErrorFactory` and fails only its field. Null propagation then applies. `gqlSelect` returns `JsonNull` when the null reaches the root.
+- The selection is not validated against the schema, and `@skip` and `@include` are not applied.
+- A named fragment spread throws `IllegalArgumentException` before any resolver runs. AppSync omits fragment definitions from `selectionSetGraphQL`.
+
+`GraphQLResolverErrorFactory.Generic` records `Internal Server Error`. `GraphQLResolverErrorFactory.WithExceptionDetails` records the exception message and a `stacktrace` extension. Use it only where the errors never reach an untrusted client.
+
 ## Request scope and batching
 
 The context factory has a `GraphQLRequestScope` receiver. It owns cleanup actions and request batch loaders.

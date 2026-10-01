@@ -15,31 +15,6 @@ public fun parseGraphQLOperation(query: String): OperationDefinition {
         ?: throw IllegalArgumentException("Operation was not found")
 }
 
-/** Converts a resolver failure into the error that a [ServerRequestSelection] records. */
-public fun interface GraphQLResolverErrorFactory {
-    public fun create(failure: Throwable, path: List<GraphQLPathSegment>): GraphQLError
-
-    public companion object {
-        /** Records a generic message, so that no exception detail reaches the response. The default. */
-        public val Generic: GraphQLResolverErrorFactory = GraphQLResolverErrorFactory { _, path ->
-            GraphQLError("Internal Server Error", path = path)
-        }
-
-        /**
-         * Records the exception message and, in the `stacktrace` extension, its stack trace, which is
-         * what 2.x recorded for every failure. Use it only where the errors never reach an untrusted
-         * client, such as in-process rendering or an internal service.
-         */
-        public val WithExceptionDetails: GraphQLResolverErrorFactory = GraphQLResolverErrorFactory { failure, path ->
-            GraphQLError(
-                message = failure.message ?: "Internal Server Error",
-                path = path,
-                extensions = buildJsonObject { put("stacktrace", failure.stackTraceToString()) },
-            )
-        }
-    }
-}
-
 /**
  * A [RequestSelection] over a GraphQL Java document, for JVM code that drives generated `gqlSelect`
  * functions directly, as 2.x applications did. It does not validate the document; new code should

@@ -146,5 +146,5 @@ Cross-compiled targets can compile without running on the current host. Use a ta
 - Put generated runtime code in `commonMain`.
 - If constructors differ, keep platform HTTP engines and server engines in platform source sets.
 - Use `GraphQLDirectClient` for common subscription tests.
-- Use `server-lambda` only in JVM projects.
+- Use `server-lambda` only in JVM projects. A Kotlin/Native AWS AppSync Lambda builds each call's selection with `RequestSelection.forRootField`, described in the [API reference](api-reference.md#root-field-selections).
 - Use `client-fetch` only in JavaScript browser projects.

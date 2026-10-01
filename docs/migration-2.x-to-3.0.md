@@ -314,6 +314,23 @@ One result cannot serve two aliases of the same field. For example, `first: sear
 
 This replaces a hand-written `RequestSelection` that wraps a `ServerRequestSelection` for the selection set. Such a wrapper delegates `responseName`, `path`, and `forIndex` to a node that has no field name, and it fails on 3.0.
 
+`ServerRequestSelection` requires GraphQL Java and is JVM-only. From 3.1.0, common code uses `RequestSelection.forRootField`, which takes the same parameters and has the same contract, on every target. A Kotlin/Native AppSync Lambda uses it:
+
+```kotlin
+val root = RequestSelection.forRootField(
+    fieldName = info.fieldName,
+    selectionSet = info.selectionSetGraphQL,
+    arguments = arguments,
+    variables = info.variables.orEmpty(),
+    errors = errors,
+    errorFactory = GraphQLResolverErrorFactory.WithExceptionDetails,
+)
+```
+
+`GraphQLResolverErrorFactory` moves to common code in 3.1.0 and keeps its name and package. On Kotlin/Native, the `stacktrace` extension of `WithExceptionDetails` holds the native stack trace.
+
+Neither version supports named fragment spreads. AppSync keeps a spread such as `...eventFields` in `selectionSetGraphQL`, but it omits the fragment's definition, so the fields that the spread selects are unknown. `RequestSelection.forRootField` throws an `IllegalArgumentException` that names the fragment before any resolver runs. The JVM version treats the spread as a field of that name, and the generated `gqlSelect` then throws an `IllegalArgumentException` for an unknown field, which fails the whole call. Clients of an AppSync API served this way must select those fields directly or in inline fragments. Neither version applies `@skip` or `@include`.
+
 ### Handle null propagation
 
 GraphKt 2.x left a failed field out of its parent object and recorded an error. The field was omitted even when the schema declared it non-null, so a response could lack a field that the schema promised.
