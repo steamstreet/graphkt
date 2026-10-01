@@ -1,8 +1,8 @@
-# GraphKt 3.1.0 release notes
+# GraphKt 3.0.2 release notes
 
 Status: Unreleased
 
-GraphKt 3.1.0 adds a common-code way to build AWS AppSync root-field selections, so an AppSync Lambda can run on Kotlin/Native. It is source and binary compatible with 3.0.1.
+GraphKt 3.0.2 adds a common-code way to build AWS AppSync root-field selections, so an AppSync Lambda can run on Kotlin/Native. It is source and binary compatible with 3.0.1.
 
 ## Root-field selections in common code
 
@@ -54,5 +54,5 @@ Before the final release:
 
 1. Run `./gradlew check`.
 2. Run `./gradlew :server:compileKotlinLinuxArm64`, which cross-compiles on a macOS host.
-3. Run `scripts/release.sh --scope minor --dry-run`, which also checks that every published coordinate is under `com.steamstreet.graphkt`, and confirm that the scratch repository holds `server-linuxarm64`.
-4. Release with `scripts/release.sh --scope minor`.
+3. Run `scripts/release.sh --dry-run` from `3.0.x`, which also checks that every published coordinate is under `com.steamstreet.graphkt`, and confirm that the scratch repository holds `server-linuxarm64`.
+4. Release with `scripts/release.sh` from `3.0.x`. Nebula's default patch bump gives 3.0.2.
