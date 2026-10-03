@@ -86,7 +86,7 @@ Generated client and server code supports Kotlin/Native. Client-only projects ca
   - Core runtime modules: JVM, JS, iOS, macOS, Linux, and Windows MinGW
   - `client-fetch`: JS only
   - `server-lambda`, generator, and Gradle plugin: JVM only
-- **Published to**: Maven Central as `com.steamstreet.graphkt:<module>`, with `<module>-<target>` for each Kotlin target and the plugin as `com.steamstreet.graphkt:gradle-plugin`
+- **Published to**: the Steamstreet repository (`https://repo.steamstreet.com`) for every release, and Maven Central for some, as `com.steamstreet.graphkt:<module>`, with `<module>-<target>` for each Kotlin target and the plugin as `com.steamstreet.graphkt:gradle-plugin`
 
 ## Convention Plugins
 
@@ -106,11 +106,21 @@ Through 2.x the artifacts published as `com.steamstreet:graphkt-<module>`. Those
 
 ## Releasing
 
-Run `scripts/release.sh` from a release branch such as `3.0.x`. Nebula derives the version from the latest tag, so a patch release is the default and `--scope minor` or `--scope major` overrides it. The script runs a clean `check` and publishes to a scratch repository. It refuses any coordinate outside `com.steamstreet.graphkt`. It then uploads, tags, publishes the deployment, and confirms that the artifacts answer on `repo1`. `--dry-run` stops after the coordinate check, before anything is uploaded or tagged.
+[docs/releasing.md](docs/releasing.md) describes the whole process. In short:
 
-Do not release with `./gradlew final` alone. It closes the staging repository but does not publish it. The deployment stops at `VALIDATED`, and `final` exits 0 having shipped nothing. Publish a stalled deployment at https://central.sonatype.com/publishing/deployments.
+Run `scripts/release.sh` from a release branch such as `3.0.x`. By default it publishes to the Steamstreet repository only: the S3 bucket `steamstreet-repository`, served read-only at `https://repo.steamstreet.com`, where a release answers within a minute or two. `--target central` also publishes to Maven Central, which takes about two hours to reach `repo1`, for the occasional public release. Either target publishes every module, the Gradle plugin, and its marker to the Steamstreet repository, so it holds every version.
 
-The script reads `mavenCentralUsername`, `mavenCentralPassword`, and the `signing.*` properties from `~/.gradle/gradle.properties`.
+Releases are patches on the current line. Nebula derives the version from the latest tag, so a patch is the default. Do not pass `--scope minor` or `--scope major` unless the owner asks for one.
+
+`--check` sets the verification before upload: `jvm` (the JVM tests; the default for the Steamstreet target), `full` (a clean `check`; the default for Central), or `none`. The coordinate check then compiles every target, so a native compile error still stops a release. `--dry-run` stops after the coordinate check, before anything is uploaded or tagged.
+
+A Steamstreet release uploads, verifies every POM at `repo.steamstreet.com`, and only then tags and pushes. An interrupted run leaves no tag, and running it again finishes it. `--resume` publishes the version tagged at `HEAD` to the Steamstreet repository again, with no check and no tag, to finish a release whose tag went out early or to backfill an older tag. A release takes longer than 30 minutes, so run it from a shell or from a tool whose time limit is at least an hour.
+
+Publishing to the Steamstreet repository uses the AWS profile `steamstreet-publisher` (or `GRAPHKT_PUBLISH_PROFILE`), a static key for the IAM user `steamstreet-maven-publisher`. The script gives it to Gradle only as `AWS_PROFILE`, and only for the publishing steps. Never export that key as `AWS_ACCESS_KEY_ID`. The bucket and the user are defined in awskt's `infrastructure/package-repository.yaml`. `-Pgraphkt.steamstreetRepositoryUrl=s3://steamstreet-repository/maven/<prefix>` publishes elsewhere in the bucket, which CloudFront does not serve, to try the publishing path without releasing. The publisher cannot delete, so remove a trial prefix with the owner's `steamstreet` profile.
+
+Do not release with `./gradlew final` alone. With `-Pgraphkt.publishTarget=central`, it closes the staging repository but does not publish it. The deployment stops at `VALIDATED`, and `final` exits 0 having shipped nothing to Central. Publish a stalled deployment at https://central.sonatype.com/publishing/deployments. With the default target, `final` pushes its tag before the uploads finish.
+
+The Central target reads `mavenCentralUsername`, `mavenCentralPassword`, and the `signing.*` properties from `~/.gradle/gradle.properties`.
 
 To inspect the publications without touching `~/.m2`, publish to a scratch repository:
 

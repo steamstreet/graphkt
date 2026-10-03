@@ -2,6 +2,7 @@ plugins {
     kotlin("multiplatform")
     kotlin("plugin.serialization")
     `maven-publish`
+    id("graphkt.steamstreet-repository")
     id("org.jetbrains.dokka")
     signing
 }

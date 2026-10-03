@@ -19,13 +19,36 @@ The browser fetch adapter is JavaScript-only. The AWS Lambda adapter and build t
 
 ## Gradle setup
 
+Every release is published to the Steamstreet repository, and some are also on Maven Central. Add the repository in `settings.gradle.kts`, limited to the GraphKt group so that nothing else is looked up there. The plugin marker is in the same group, so the filter covers the plugin too:
+
+```kotlin
+pluginManagement {
+    repositories {
+        maven("https://repo.steamstreet.com") {
+            content { includeGroup("com.steamstreet.graphkt") }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+dependencyResolutionManagement {
+    repositories {
+        maven("https://repo.steamstreet.com") {
+            content { includeGroup("com.steamstreet.graphkt") }
+        }
+        mavenCentral()
+    }
+}
+```
+
 Apply the plugin and a Kotlin serialization plugin:
 
 ```kotlin
 plugins {
     kotlin("multiplatform") version "2.3.0"
     kotlin("plugin.serialization") version "2.3.0"
-    id("com.steamstreet.graphkt") version "3.0.1"
+    id("com.steamstreet.graphkt") version "3.0.2"
 }
 
 kotlin {
@@ -35,7 +58,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation("com.steamstreet.graphkt:client-ktor:3.0.1")
+            implementation("com.steamstreet.graphkt:client-ktor:3.0.2")
         }
     }
 }
@@ -58,8 +81,10 @@ The plugin connects generated code to `commonMain`. You do not need a manual sou
 - [3.0 API reference](docs/api-reference.md)
 - [Subscription guide](docs/subscriptions.md)
 - [Performance baseline](docs/performance-baseline.md)
+- [3.0.2 release notes](docs/release-notes-3.0.2.md)
 - [3.0.1 release notes](docs/release-notes-3.0.1.md)
 - [3.0 implementation plan](docs/graphkt-3.0-plan.md)
+- [Releasing GraphKt](docs/releasing.md)
 
 ## Samples
 
