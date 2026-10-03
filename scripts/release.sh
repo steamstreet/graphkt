@@ -16,9 +16,10 @@
 # 30 minutes, so run it from a shell, or from a tool whose time limit is at least an hour.
 #
 # `--resume` publishes the version tagged at HEAD to the Steamstreet repository again, without a
-# check and without tagging: to finish a release whose tag was pushed before its uploads completed,
-# or to backfill an older tag into the repository (check the tag out first). Uploads of a version
-# replace the same coordinates, so running it twice is harmless.
+# check and without tagging: to finish a release whose tag was pushed before its uploads completed
+# (check the tag out first). Uploads of a version replace the same coordinates, so running it twice
+# is harmless. It works only for 3.0.3 and later: older tags predate the Steamstreet repository, and
+# are backfilled by copying them from Maven Central instead (docs/releasing.md).
 #
 # `--check` sets how much is verified before anything is uploaded:
 #   jvm   the JVM tests only (jvmTest in the multiplatform modules, test in the JVM-only ones),
@@ -98,7 +99,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run)    DRY_RUN=1; shift ;;
     --resume)     RESUME=1; shift ;;
     --skip-check) CHECK="none"; shift ;;
-    -h|--help)    sed -n '2,70p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)    sed -n '2,71p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *)            echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done

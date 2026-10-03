@@ -95,21 +95,33 @@ With any level, step 4 still compiles every target. `jvm` skips only the native 
 
 `--dry-run` stops after step 4, before anything is uploaded or tagged. Use it to check that a release is ready.
 
-### Finishing or backfilling a release
+### Finishing or republishing a release
 
-`--resume` publishes the version tagged at `HEAD` to the Steamstreet repository again. It does not run a check, and it does not create a tag. Use it in two cases:
-
-- A release's tag was pushed, but the uploads did not finish.
-- An older release, such as one that is only on Maven Central, needs to be in the Steamstreet repository.
-
-Check out the tag first:
+`--resume` publishes the version tagged at `HEAD` to the Steamstreet repository again. It does not run a check, and it does not create a tag. Use it when a release's tag was pushed but the uploads did not finish. Check out the tag first:
 
 ```bash
-git switch --detach v3.0.2
+git switch --detach v3.0.3
 scripts/release.sh --resume
 ```
 
 An upload replaces the same coordinates, so running `--resume` twice is harmless.
+
+`--resume` works only for 3.0.3 and later. Older tags predate the Steamstreet repository, so their build has no repository to publish to, and their `release.sh` has no `--resume` option. To add an older release, copy it from Maven Central. See [Backfilling a release from Maven Central](#backfilling-a-release-from-maven-central).
+
+### Backfilling a release from Maven Central
+
+Copy a release that is only on Central, rather than rebuilding it from its tag. The copy is identical to what Central serves, signatures included. A rebuild with today's toolchain would not be. 3.0.1 and 3.0.2 were backfilled this way in October 2026.
+
+1. **List the files.** List the artifact directories under `https://repo1.maven.org/maven2/com/steamstreet/graphkt/`. For each artifact, list every file in `<artifact>/<version>/`. 3.0.1 and 3.0.2 each have 73 artifacts and 3,990 files.
+2. **Download them.** Check every file against its `.sha1`.
+3. **Upload the version directories.** Upload them to `s3://steamstreet-repository/maven/release/` as the publisher, with `AWS_PROFILE=steamstreet-publisher`.
+4. **Upload `maven-metadata.xml` last.** Upload it with its `.md5`, `.sha1`, `.sha256`, and `.sha512` files. It must list exactly the versions that the bucket holds:
+   - **The artifact has no metadata in the bucket.** Copy Central's file if it lists only versions that the bucket holds.
+   - **The bucket already has metadata.** Write a merged file that lists the existing versions and the new ones, with `latest` and `release` set to the newest. Regenerate its checksums.
+   - **Central's file lists versions that the bucket lacks.** Write a file without those versions. The plugin marker is one such case: Central's metadata also lists the 2.x versions.
+5. **Verify.** Fetch every file back through `https://repo.steamstreet.com` and compare its hash with the downloaded copy.
+
+The bucket also holds GraphKt builds `0.1.0-build14` to `0.1.0-build18`, published by a CodeBuild pipeline in September 2020. They are kept, and the merged metadata lists them.
 
 ### Releasing to Maven Central
 
