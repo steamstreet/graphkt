@@ -60,12 +60,35 @@ tasks.named("snapshot") {
 // deployment stops at VALIDATED and stays there until something publishes it explicitly. `final`
 // exits 0 either way, so a release driven by it alone looks like it succeeded and ships nothing.
 //
-// Use `scripts/release.sh`, which runs `final`, then publishes the deployment and verifies that the
-// artifacts answer on repo1. To publish by hand instead, POST to
+// Use `scripts/release.sh --target central`, which runs `final`, then publishes the deployment and
+// verifies that the artifacts answer on repo1. To publish by hand instead, POST to
 // https://central.sonatype.com/api/v1/publisher/deployment/<id>, or click Publish at
 // https://central.sonatype.com/publishing/deployments.
 val closeTask = tasks.named("closeSonatypeStagingRepository")
+
+// Where `final` publishes, chosen with -Pgraphkt.publishTarget:
+//
+// - `steamstreet` (the default) publishes only to the Steamstreet repository, which answers at
+//   https://repo.steamstreet.com within a minute or two. See the steamstreet-repository convention.
+// - `central` publishes to Maven Central as well, through the staging repository described above,
+//   so that the Steamstreet repository still holds every version. It takes about two hours to reach
+//   repo1, and is for the occasional public release.
+//
+// `gradle-plugin` is a subproject, so either target publishes the plugin and its marker too.
+//
+// `scripts/release.sh --target` sets the property; use the script rather than `final` directly. For
+// the Steamstreet target the script does not run `final` at all, because nebula pushes the tag before
+// the uploads finish; it uploads, verifies, and tags last.
+val publishTarget = providers.gradleProperty("graphkt.publishTarget").getOrElse("steamstreet")
+
 tasks.named("final") {
-    dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishToSonatype" } })
-    dependsOn(closeTask)
+    dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishAllPublicationsToSteamstreetRepository" } })
+    when (publishTarget) {
+        "steamstreet" -> {}
+        "central" -> {
+            dependsOn(subprojects.flatMap { it.tasks.matching { it.name == "publishToSonatype" } })
+            dependsOn(closeTask)
+        }
+        else -> throw GradleException("graphkt.publishTarget must be steamstreet or central, not '$publishTarget'")
+    }
 }
