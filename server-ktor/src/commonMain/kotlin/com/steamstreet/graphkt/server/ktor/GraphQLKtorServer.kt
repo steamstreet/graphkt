@@ -2,11 +2,10 @@ package com.steamstreet.graphkt.server.ktor
 
 import com.steamstreet.graphkt.GraphQLError
 import com.steamstreet.graphkt.server.GraphQLResolverErrorFactory
+import com.steamstreet.graphkt.server.RequestOperation
+import com.steamstreet.graphkt.server.RequestOperationType
 import com.steamstreet.graphkt.server.RequestSelection
-import com.steamstreet.graphkt.server.ServerRequestSelection
 import com.steamstreet.graphkt.server.buildResponse
-import com.steamstreet.graphkt.server.parseGraphQLOperation
-import graphql.language.OperationDefinition
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.plugins.*
@@ -62,7 +61,7 @@ public fun Route.graphQL(block: GraphQLConfiguration.() -> Unit) {
 /**
  * Initialize the GraphQL system. Provide a callback that will create the root GraphQL object.
  *
- * Each callback receives a [ServerRequestSelection] for the operation and usually passes it to a
+ * Each callback receives a [RequestSelection] for the operation and usually passes it to a
  * generated root `gqlSelect` function. Resolver failures are recorded as field errors through
  * [errorFactory].
  *
@@ -113,19 +112,26 @@ public fun Route.graphQL(
         respondText(responseEnvelope.toString(), ContentType.Application.Json, HttpStatusCode.OK)
     }
 
+    // As the JVM route did, the document is parsed outside the error envelope: a document that
+    // cannot be parsed fails the request, where a request without a document gets the envelope.
+    fun parse(
+        query: String?, variables: JsonObject?, operationName: String?, errors: MutableList<GraphQLError>,
+    ): RequestOperation? = query?.let {
+        RequestOperation.parse(
+            query = it,
+            variables = variables,
+            errors = errors,
+            errorFactory = errorFactory,
+            operationName = operationName,
+        )
+    }
+
     suspend fun invoke(
-        call: ApplicationCall, query: OperationDefinition?, variables: Map<String, JsonElement>?,
+        call: ApplicationCall, operation: RequestOperation?, errors: List<GraphQLError>,
         function: (suspend (ApplicationCall, RequestSelection) -> JsonElement?)?
     ) {
         try {
-            val errors = ArrayList<GraphQLError>()
-            val selection = ServerRequestSelection(
-                parent = null,
-                variables = variables ?: emptyMap(),
-                node = query?.selectionSet ?: throw IllegalArgumentException(),
-                errors = errors,
-                errorFactory = errorFactory,
-            )
+            val selection = operation?.selection ?: throw IllegalArgumentException()
             val result = function?.invoke(call, selection) ?: throw NotFoundException()
             val response = buildResponse(result, errors)
 
@@ -142,26 +148,32 @@ public fun Route.graphQL(
     post {
         val request = call.receiveText()
         val requestElement = json.parseToJsonElement(request) as JsonObject
-        val query = requestElement["query"]?.jsonPrimitive?.contentOrNull?.let {
-            parseGraphQLOperation(it)
-        }
-        val variables = requestElement["variables"] as? JsonObject
+        val errors = ArrayList<GraphQLError>()
+        val operation = parse(
+            query = requestElement["query"]?.jsonPrimitive?.contentOrNull,
+            variables = requestElement["variables"] as? JsonObject,
+            operationName = requestElement["operationName"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() },
+            errors = errors,
+        )
 
-        val operationInvocation = when (query?.operation) {
-            OperationDefinition.Operation.QUERY -> queryGetter
-            OperationDefinition.Operation.MUTATION -> mutationGetter
+        val operationInvocation = when (operation?.type) {
+            RequestOperationType.QUERY -> queryGetter
+            RequestOperationType.MUTATION -> mutationGetter
             else -> null
         }
-        invoke(call, query, variables, operationInvocation)
+        invoke(call, operation, errors, operationInvocation)
     }
 
     get {
-        val query = call.request.queryParameters["query"]?.let {
-            parseGraphQLOperation(it)
-        }
-        val variables = call.request.queryParameters["variables"]?.let {
-            json.parseToJsonElement(it) as? JsonObject
-        }
-        invoke(call, query, variables, queryGetter)
+        val errors = ArrayList<GraphQLError>()
+        val operation = parse(
+            query = call.request.queryParameters["query"],
+            variables = call.request.queryParameters["variables"]?.let {
+                json.parseToJsonElement(it) as? JsonObject
+            },
+            operationName = call.request.queryParameters["operationName"]?.takeIf { it.isNotEmpty() },
+            errors = errors,
+        )
+        invoke(call, operation, errors, queryGetter)
     }
 }

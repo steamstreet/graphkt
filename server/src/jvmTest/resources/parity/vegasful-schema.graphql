@@ -1,0 +1,1403 @@
+# a local date
+scalar AWSDate
+
+# a local time
+scalar AWSTime
+
+# an instant (UTC)
+scalar AWSDateTime
+
+# the difference between two instants
+scalar EventDuration
+
+schema {
+    query: Query
+    mutation: Mutation
+}
+
+# The main query entry point.
+type Query {
+    venues: Venues!
+    events: Events!
+    performers: Performers!
+    tags: Tags!
+    articles: Articles!
+
+    # Attractions and experiences that keep opening hours rather than start times —
+    # the High Roller, a museum, a tour. See specs/things-to-do.md.
+    thingsToDo: ThingsToDo!
+
+    # the main content area
+    content: Content!
+
+    # execute a global search
+    search(input: GlobalSearchInput!): GlobalSearchResults!
+
+    # fast text-based typeahead search for as-you-type suggestions. Unlike `search`,
+    # this skips semantic embedding generation, so it is cheaper and low-latency.
+    typeahead(input: GlobalSearchInput!): GlobalSearchResults!
+
+    conversations: Conversations!
+
+    # the subscriptions model
+    subscriptions: Subscriptions!
+
+    # get an entity by its path
+    entity(path: String!): Entity!
+
+    # get entities by path.
+    entities(path: [String!]!): [Entity!]!
+
+    # get the permissions for the viewer
+    permissions: [String!]!
+
+    # access content view information.
+    contentViews: ContentViews!
+
+    # information used for client setup
+    clientSupport: ClientSupport!
+
+    # Auxiliary content
+    auxContent: AuxContent!
+}
+
+# The root of the content API, the main access to venues, events, performers and tags.
+type Content {
+    # Access to venues
+    venues: Venues!
+
+    # Access to events
+    events: Events!
+
+    # Access to performers
+    performers: Performers!
+
+    # Access to tags
+    tags: Tags!
+
+    # Retrieve batches of entities.
+    entities(path: [String!]!): [Entity!]!
+}
+
+type Mutation {
+    # access to the admin tools, completely implemented under mutation (there is no Query.admin)
+    admin: AdminMutation!
+
+    # access to user subscriptions and entities
+    subscriptions: SubscriptionsMutator!
+
+    # the accounts configuration
+    accounts: Accounts!
+
+    # the client support API
+    clientSupport: ClientSupport!
+}
+
+type Conversations {
+    # execute a conversation.
+    start(input: ConversationInput!): Conversation!
+
+    # get the status of a conversation
+    conversation(id: ID!): Conversation
+}
+
+# The input to a conversation
+input ConversationInput {
+    query: String!
+
+    # Optional GPS location for "near me" queries
+    location: GPSCoordinatesInput
+
+    # Continue an existing conversation, so this query is interpreted in the context of
+    # everything already asked and answered in that thread. Omit to start a new conversation.
+    conversationId: ID
+}
+
+# GPS Coordinates input
+input GPSCoordinatesInput {
+    latitude: Float!
+    longitude: Float!
+}
+
+enum ConversationStatus {
+    RUNNING,
+    COMPLETE,
+    FAILED
+}
+
+# How far a running conversation turn has got. A turn reaches the stages in this order.
+enum ConversationStage {
+    READING,
+    SEARCHING,
+    CHOOSING
+}
+
+type Conversation {
+    # a unique identifier of the conversation
+    id: ID!,
+
+    # the status of the most recent turn
+    status: ConversationStatus,
+
+    # while the most recent turn is RUNNING, the stage it has reached. Null once it has finished.
+    stage: ConversationStage,
+
+    # the most recent turn's picks, best first. Null while it is running.
+    picks: [ConciergePick!],
+
+    # what the most recent turn found but did not choose, in search order. Null while it is running.
+    more: [Entity!],
+
+    # a note from the concierge about the most recent turn, in plain text: that nothing matched,
+    # or that something went wrong. Null when there is nothing to say beyond the picks.
+    message: String,
+
+    # every turn in the thread, oldest first, including the one currently running
+    turns: [ConversationTurn!]
+}
+
+# A single question and its answer within a conversation.
+type ConversationTurn {
+    # the question exactly as the user asked it
+    query: String!
+
+    # the status of this turn. Only the last turn is ever RUNNING.
+    status: ConversationStatus!
+
+    # this turn's picks, best first; absent while it is still running
+    picks: [ConciergePick!]
+
+    # what this turn found but did not choose
+    more: [Entity!]
+
+    # a note from the concierge about this turn, in plain text
+    message: String
+}
+
+# One thing the concierge chose, and why. The same show at the same venue on several days is a
+# single pick carrying every date.
+type ConciergePick {
+    # the highest-ranked showing, which is what the pick links to
+    entity: Entity!
+
+    # why it suits the question, in plain text
+    reason: String
+
+    # the date of every showing the pick stands for, earliest first; empty for something without
+    # dates, such as a venue
+    dates: [AWSDate!]!
+
+    # the start time, present only when every showing starts at the same time
+    time: AWSTime
+}
+
+input GlobalSearchInput {
+    text: String!
+}
+
+type GlobalSearchResults {
+    # a single, cross-type list of results in relevance order, suitable for an interleaved
+    # typeahead dropdown. The per-type fields below contain the same entities grouped by type,
+    # suitable for a results page. Clients select whichever shape they need.
+    results: [Entity!]
+
+    events: [Event!]
+    venues: [Venue!]
+    tags: [Tag!]
+    performers: [Performer!]
+}
+
+# Base class for all of the various entities in the system
+interface Entity {
+    id: ID!
+    name: String
+    description: String
+    images: [Image!]
+    tags: [Tag!]
+
+    # the path to this entity, which can be used for URLs to access the entity page or data (i.e. /performers/123)
+    path: String
+
+    # Search for events related to this entity.
+    events(input: EventSearch!): EventSearchResults!
+}
+#
+# Manages access to venues
+type Venues {
+    # get the root venue
+    root: Venue!
+
+    # Get a venue
+    venue(id: ID!): Venue!
+}
+
+# Represents a venue
+type Venue implements Entity {
+    # the unique identifier of the venue
+    id: ID!
+
+    # the name of the venue
+    name: String!
+
+    # a description of the venue
+    description: String
+
+    # the venue's parent (can be null)
+    parent: Venue
+
+    # A list of social links including phone, website, twitter, etc.
+    links: [SocialLink!]!
+
+    # A list of images associated with this venue
+    images: [Image!]!
+
+    # A list of tags
+    tags: [Tag!]!
+
+    # A list of child venues
+    children: [Venue!]!
+
+    # The GPS location of the venue
+    location: GPSCoordinates
+
+    # The address of the venue
+    address: Address
+
+    # Find events at this venue
+    events(input: EventSearch!): EventSearchResults!
+
+    path: String!
+
+    # Is this venue closed?
+    status: VenueStatus!
+
+    # if of a venue to redirect to
+    redirect: String
+
+    # the ticketing URL for the entire venue
+    ticketsUrl: String
+
+    # The activation stream events at this venue belong to. Null means MOST_RECENT.
+    # Inherited by child venues that do not set their own.
+    eventStream: EventStream
+
+    # Information about parking options for this venue
+    parking: String
+
+    # Things to do at this venue, including at its child venues. Separate from
+    # `events` on purpose: these are open during hours rather than held at a
+    # time, and mixing them into a dated list is what the separate type exists
+    # to prevent.
+    thingsToDo: [ThingToDo!]!
+
+    # An optional curated content view used to render this venue's page. When
+    # set, it is resolved inline from the content view whose id matches the
+    # configured value; null when no view is configured or the configured id no
+    # longer exists (the client then falls back to the default page layout).
+    contentView: ViewConfiguration
+}
+
+enum VenueStatus {
+    OPEN
+    CLOSED_TEMPORARILY
+    CLOSED_PERMANENTLY
+}
+
+# Represents some kind of social link to an entity.
+type SocialLink {
+    # the type of link
+    type: String!
+
+    # the locator, the format depending on the type of link.
+    locator: String!
+}
+
+# An address
+type Address {
+    street: String
+    city: String
+    state: String
+    zip: String
+    country: String
+}
+
+# GPS Coordinates
+type GPSCoordinates {
+    latitude: Float!
+    longitude: Float!
+}
+
+enum ImageVariant {
+    SMALL
+    MEDIUM
+    LARGE
+}
+
+input VariantInput {
+    variants: [ImageVariant!]
+}
+
+# An image
+type Image {
+    # unique identifier of the image. Two identical images will always have the same id.
+    id: String!
+
+    # the uri to find the image
+    uri: String!
+
+    # the width of the image (if known)
+    width: Int
+
+    # the height of the image (if known)
+    height: Int
+
+    # gets a version of this image with the given width
+    withWidth(width: Int!): Image!
+
+    # an optional image variant
+    variant: ImageVariant
+
+    variants(input: VariantInput!): [Image!]!
+
+    # short hand for the specific types
+    small: Image
+    medium: Image
+    large: Image
+
+}
+
+type Tags {
+    # Get a tag
+    tag(id: ID!): Tag!
+
+    tags(ids: [ID!]!): [Tag!]!
+
+    # get the list of root tags
+    root: [Tag!]!
+}
+
+# A tag, or general data attached to an entity for organizational purposes.
+type Tag implements Entity {
+    id: ID!
+    path: String!
+    name: String!
+    description: String
+
+    # use a different title when rendering the tag as a page.
+    pageTitle: String!
+
+    images: [Image!]!
+
+    # find events with this tag.
+    events(input: EventSearch!): EventSearchResults!
+
+    # we'll overload this to mean children
+    tags: [Tag!]
+
+    # the tag's parent
+    parent: Tag
+
+    # is this a shadow tag? Meaning it's used mainly for organization.
+    shadow: Boolean!
+
+    # Does this tag say something about a person's taste? False for tags that
+    # exist for curation or organization, which are never allowed to influence
+    # recommendations. Defaults to true.
+    personalize: Boolean!
+
+    # An optional curated content view used to render this tag's page. When set,
+    # it is resolved inline from the content view whose id matches the configured
+    # value; null when no view is configured or the configured id no longer
+    # exists (in which case the client falls back to the default page layout).
+    contentView: ViewConfiguration
+}
+
+# The activation stream an event belongs to, taken from the venue it is held at.
+# An announcement is only newsworthy relative to its own kind: a resident DJ booked
+# at a nightclub next month is not the same class of news as a headline concert, so
+# clubs are kept in their own stream rather than crowding the main one.
+#
+# MOST_RECENT is the general stream, and is what a venue with no stream set uses.
+# CLUB is the nightclub and dayclub stream.
+# NONE keeps a venue's events out of every stream, and out of "just announced"
+# entirely.
+enum EventStream {
+    MOST_RECENT
+    CLUB
+    NONE
+}
+
+type Events {
+    # get an event by id. If the event doesn't exist, an error is returned.
+    event(id: ID!): Event!
+
+    # find events globally
+    search(input: EventSearch!): EventSearchResults!
+
+    # search for recently active event. The dates in this search refer to the
+    # date that the event was activated and NOT the date of the event.
+    recentlyActive(input: EventSearch!): EventSearchResults!
+
+    # search for recently active events by stream. The dates in this search refer to the
+    # date that the event was activated and NOT the date of the event. NONE is not a
+    # stream that anything is written to, and always comes back empty.
+    recentlyActiveByStream(stream: EventStream!, input: EventSearch!): EventSearchResults!
+}
+
+# Represents an event
+type Event implements Entity {
+    id: ID!
+    path: String!
+
+    name: String!
+
+    description: String
+
+    venue: Venue
+
+    images: [Image!]!
+
+    tags: [Tag!]!
+
+    date: AWSDate
+    time: AWSTime
+
+    # the UTC instant of the event
+    ts: AWSDateTime
+
+    endDate: AWSDate
+    endTime: AWSTime
+
+    # the event duration.  This is mostly used for inheriting in cases where the child events
+    # don't have an end time.
+    duration: EventDuration
+
+    performers: [Performer!]!
+
+    ticketsUrl: String
+    disabled: Boolean!
+    sourceUrl: String
+
+    parent: Event
+    children: [Event!]!
+
+    # search for child events
+    events(input: EventSearch!): EventSearchResults!
+
+    # Is this event active?
+    active: Boolean!
+
+    # The event tagline
+    tagline: String
+
+    # the overall score of this event
+    score: Int
+
+    # Get events that are related to this one.
+    related(input: EventSearch!): EventSearchResults!
+
+    # Parking information inherited from the venue
+    parking: String
+
+    # An optional curated content view used to render this event's page. When
+    # set, it is resolved inline from the content view whose id matches the
+    # configured value; null when no view is configured or the configured id no
+    # longer exists (the client then falls back to the default page layout).
+    contentView: ViewConfiguration
+}
+
+# Access to things to do — attractions and experiences that keep opening hours
+# rather than start and end times. See specs/things-to-do.md for why these are a
+# separate type from Event rather than an undated event.
+type ThingsToDo {
+    # get a thing to do by id. An unknown id is an error.
+    thing(id: ID!): ThingToDo!
+
+    # find things to do. With no criteria this is the whole catalogue, which is
+    # deliberately affordable: there are a few hundred of these city-wide, and
+    # openness is evaluated in memory rather than from an index.
+    search(input: ThingSearch!): ThingToDoResults!
+}
+
+input ThingSearch {
+    # venue paths to search within, including their children
+    venues: [String!]
+
+    # tag ids to search for
+    tags: [String!]
+
+    # only things open at this instant
+    openAt: AWSDateTime
+
+    # only things open at some point on this Las Vegas local date
+    openOn: AWSDate
+
+    maxResults: Int
+}
+
+type ThingToDoResults {
+    things: [ThingToDo!]!
+}
+
+# Something to do that is open during hours rather than held at a time.
+type ThingToDo implements Entity {
+    id: ID!
+    path: String!
+    name: String!
+    description: String
+    tagline: String
+
+    # A short 2-3 sentence summary suitable for cards (plain text).
+    summary: String
+
+    images: [Image!]!
+    tags: [Tag!]!
+    links: [SocialLink!]!
+
+    # The venue this is at. Always present in the data — something with no more
+    # specific home sits at the city root — which is what lets the catalogue be a
+    # link query. The invariant is held by the model and the admin write path, but
+    # deliberately not asserted in the type: `Event.venue` is nullable, and the two
+    # have to merge under the response key `venue` wherever a selection set covers
+    # both types (a content-view panel's `entities`, for one). GraphQL's
+    # OverlappingFieldsCanBeMerged rule checks response shape before it looks at
+    # which concrete type each fragment applies to, so a nullable/non-null pair is
+    # a FieldsConflict that fails validation for the whole document. `Event.venue`
+    # cannot go the other way: its resolver genuinely returns null for a stored
+    # record with no venue, and a non-null field would propagate that null upward
+    # and drop the event out of the list entirely.
+    venue: Venue
+
+    # Events at the same venue. Present because every Entity carries it; a thing
+    # to do has no events of its own.
+    events(input: EventSearch!): EventSearchResults!
+
+    # When this is open.
+    hours: OpeningHours!
+
+    # A rendered, human-readable availability line — "Open until 2 AM", "Opens
+    # 10 AM", "Opens tomorrow 10 AM", "Open 24 hours", "Closed".
+    #
+    # Computed on the server so that every client renders the same words. Las
+    # Vegas hours run past midnight often enough that three independent
+    # implementations of "which day does 1am belong to" is three chances for a
+    # card to disagree with the page it links to.
+    #
+    # Null when no hours have been recorded, which is not the same as being
+    # closed — a card with no hours should say nothing rather than claim the
+    # place is shut.
+    availability: String
+
+    # Is it open right now?
+    openNow: Boolean!
+
+    # Roughly how long a visit takes, in minutes. This is what lets a thing to do
+    # be matched against a gap in a day rather than merely listed.
+    typicalDuration: Int
+
+    # The lowest ticket price in whole dollars, if known.
+    priceFrom: Int
+
+    ticketsUrl: String
+
+    # Parking information, inherited from the venue.
+    parking: String
+
+    # the overall score of this thing
+    score: Int
+}
+
+# Opening hours. Precedence when answering "open on date X" is overrides beat
+# seasons beat weekly; seasons are not exposed here because no client renders
+# them, only their effect through openOn.
+type OpeningHours {
+    weekly: [WeeklyHours!]!
+    overrides: [HoursOverride!]!
+
+    # Anything the structure cannot express — "last boarding 30 minutes before
+    # close".
+    notes: String
+
+    # The spans of being open that begin on the given Las Vegas local date. A
+    # place open 11:30am to 2am reports one span on the day it opened, ending
+    # after midnight — it reports nothing for the following date.
+    openOn(date: AWSDate!): [OpenInterval!]!
+}
+
+type WeeklyHours {
+    days: [Weekday!]!
+    ranges: [OpenRange!]!
+}
+
+type HoursOverride {
+    date: AWSDate!
+    closed: Boolean!
+    ranges: [OpenRange!]!
+    note: String
+}
+
+# A span of being open, as an opening time plus how long it lasts.
+#
+# Duration rather than a closing time: Las Vegas closes past midnight
+# constantly, and a closing time of 02:00 cannot be told apart from "closed at
+# 2am the same morning".
+type OpenRange {
+    open: AWSTime!
+    durationMinutes: Int!
+}
+
+# A span of being open resolved onto real instants. Half-open: a place closing
+# at 2am is not open at 2am.
+type OpenInterval {
+    start: AWSDateTime!
+    end: AWSDateTime!
+}
+
+enum Weekday {
+    MONDAY
+    TUESDAY
+    WEDNESDAY
+    THURSDAY
+    FRIDAY
+    SATURDAY
+    SUNDAY
+}
+
+type Performers {
+    performer(id: ID!): Performer!
+
+    # text search of performers
+    search(input: PerformerSearch!): PerformerResults!
+}
+
+input PerformerSearch {
+    text: String
+}
+
+# Results of a performer search.
+type PerformerResults {
+    performers: [Performer!]
+    nextToken: String
+}
+
+type Performer implements Entity {
+    # The id of the performer
+    id: ID!
+
+    path: String!
+
+    # the name of the performer
+    name: String!
+
+    # A description of the performer (HTML)
+    description: String
+
+    # A short 2-3 sentence summary of the performer, suitable for event cards
+    # and other compact contexts (plain text).
+    summary: String
+
+    # A set of tags assigned to the performer
+    tags: [Tag!]!
+
+    # Find events for this performer in the given date range
+    events(input: EventSearch!): EventSearchResults!
+
+    # Events similar to this performer, discovered via the performer's shared tags.
+    related(input: EventSearch!): EventSearchResults!
+
+    # A list of images associated with this venue
+    images: [Image!]!
+
+    # A list of social links including phone, website, twitter, etc.
+    links: [SocialLink!]!
+}
+
+input ArticleSearchInput {
+    maxResults: Int
+
+    # get articles with any of the provided links
+    links: [String!]
+}
+
+type ArticleSearchResult {
+    articles: [Article!]!
+}
+
+type Articles {
+    article(id: ID!): Article!
+
+    # Get the list of recent articles. Only published articles are included
+    recent(input: ArticleSearchInput!): ArticleSearchResult!
+
+    # Query for articles. Only published articles are included.
+    query(input: ArticleSearchInput!): ArticleSearchResult!
+}
+
+type Article implements Entity {
+    id: ID!
+    path: String
+
+    title: String!
+
+    # A brief summary of the article, often just the first paragraph or so.
+    summary: String!
+
+    description: String
+    name: String
+    tags: [Tag!]
+
+    content: String
+
+    created: AWSDateTime!
+    updated: AWSDateTime!
+    published: AWSDateTime
+
+    linkedEntities: [Entity!]!
+
+    images: [Image!]!
+
+    events(input: EventSearch!): EventSearchResults!
+}
+
+input EventSearch {
+    # The start date to query
+    start: AWSDateTime
+
+    # The end date to query
+    end: AWSDateTime
+
+    # The number of events to return at one time
+    pageSize: Int
+
+    # a token that can be used to fetch additional events.
+    pageToken: String
+
+    # the minimum score of entities to retrieve
+    minScore: Int
+}
+
+# The results on an event query
+type EventSearchResults {
+    # The list of events
+    events: [Event!]!
+
+    # a token that can be used to retrieve more events for the same search
+    pageToken: String
+}
+
+input EventAttributeInput {
+    key: String!
+    value: String!
+}
+
+input SystemEventInput {
+    attributes: [EventAttributeInput!]!
+}
+
+type SystemMutation {
+    applicationEvent(input: SystemEventInput!): Boolean!
+}
+
+# A user of the system
+type Subscriptions {
+    # The list of entities that the user is subscribed to.
+    userSubscriptions(userId: String!): UserSubscriptions!
+
+    # api that uses the currently logged in user. Returns null if not logged in
+    mine: UserSubscriptions
+}
+
+type UserSubscriptions {
+    # query for events in the subscriptions of this user
+    events(input: EventSearch!): EventSearchResults!
+
+    # get a user's interactions with a given entity
+    interactionsWithEntity(entityPath: String!): [Subscription!]!
+
+    # get the interaction summary for the entity for this user.
+    interactionSummary(entityPath: String!): InteractionSummary!
+
+    # get a user's interactions of a given type of interaction
+    interactions(type: InteractionType!): [Subscription!]!
+
+    # get entities and recommendations for the user in a single call
+    recommendations: UserRecommendations!
+
+    # get calendar entities for a date range. The default will be all, but may
+    # be limited.
+    calendar(start: AWSDateTime, end: AWSDateTime, limit: Int,
+        paginationToken: String): EventSearchResults!
+}
+
+# Defines recommendations for the user.
+type UserRecommendations {
+    # a set of entities and recommended events related to those entities
+    entities: [UserRecommendation!]!
+
+    # get top user recommendations
+    top(input: EventSearch!): EventSearchResults!
+
+    # a list of upcoming events
+    comingUp: [Event!]!
+}
+
+# defines a recommended entity (like a genre or venue) along with the top events for that entity
+type UserRecommendation {
+    # the recommended entity
+    entity: Entity!
+
+    # the recommended events for the entity
+    events: [Event!]!
+
+    # a weighting of the entity
+    score: Int
+}
+
+# A summary of interactions for an entity
+type InteractionSummary {
+    # the path of the entity
+    path: String!
+
+    # did the user like this entity
+    liked: Boolean!
+}
+
+enum InteractionType {
+    LIKE,
+    FOLLOW,
+    SHARE,
+    CALENDAR,
+    TICKETS,
+    MORE_INFO,
+    VIEWED
+}
+
+# Describes a subscription
+type Subscription {
+    interactionType: InteractionType!
+
+    # the user that is subscribed
+    subscriber: String!
+
+    # the entity that is subscribed to
+    target: Entity!
+
+    # the date that the subscription occurred on
+    date: AWSDateTime!
+
+    # the name of the entity
+    name: String!
+
+    # the description of the entity
+    description: String
+}
+
+input SubscriptionInput {
+    # if null, uses the logged in user
+    userId: String
+
+    entityPath: String!
+}
+
+input ClearUserDataInput {
+    # if null, uses the logged in user
+    userEmail: String
+}
+
+# Makes changes to subscriptions
+type SubscriptionsMutator {
+    # subscribe to a new entity
+    subscribe(input: SubscriptionInput!): Subscription!
+
+    # unsubscribe
+    unsubscribe(input: SubscriptionInput!): Boolean!
+
+    # clear user data
+    clear(input: ClearUserDataInput!): Boolean!
+
+    # Called when a user shares an entity
+    share(input: ShareInput!): Boolean!
+
+    # Called when a user shares an entity
+    like(input: LikeInput!): Boolean!
+
+    # Interact with an entity
+    interact(input: InteractInput!): Boolean!
+
+    # Clear a previous interaction. Only works with things like likes, calendar, etc.
+    clearInteraction(input: InteractInput!): Boolean!
+
+    # Rebuild this user's recommendation profile now, returning once it is saved.
+    #
+    # Liking something schedules a rebuild that is deliberately delayed, so that picking ten things
+    # in twenty seconds does not mean ten rebuilds. That debounce is right for ordinary browsing and
+    # wrong for onboarding, where somebody has just chosen their interests and expects to see the
+    # result. This is the explicit "I have finished choosing" signal the timer is otherwise guessing
+    # at.
+    buildRecommendations: Boolean!
+
+    # Register the device token for notifications
+    registerDevice(input: DeviceTokenRegistration!): Boolean!
+}
+
+enum DeviceTokenPlatform {
+    IOS,
+    ANDROID
+}
+
+input InteractInput {
+    # the type of interaction
+    type: InteractionType!
+    # the path of the entity we're interacting with
+    entityPath: String!
+}
+
+input DeviceTokenRegistration {
+    # The platform of the device
+    platform: DeviceTokenPlatform!
+
+    # The device token
+    token: String!
+}
+
+input LikeInput {
+    # the entity path
+    entityPath: String!
+
+    # paths for additional entities. This allows liking multiple items, like
+    # during setup. It's configured as a separate parameter for compatibility.
+    additionalPaths: [String!]
+}
+
+input ShareInput {
+    entityPath: String!
+}
+
+# Describes content views
+type ContentViews {
+    # Get a content view by id (something like 'home', 'new', etc.
+    # @deprecated
+    view(id: String!): ContentView!
+
+    # get a content view configuration
+    byId(id: ID!, input: ViewQuery): ViewConfiguration!
+}
+
+# Additional
+input ViewQuery {
+    startDate: AWSDate
+    endDate: AWSDate
+}
+
+enum ContentViewType {
+    ENTITY_SCROLLER,
+    ENTITY_LIST,
+    EVENT_CALENDAR,
+    ARTICLE,
+    LINKS,
+    HERO
+}
+
+enum ContentSource {
+    FOR_YOU
+}
+
+type ViewConfiguration {
+    # the id of the view
+    id: ID!
+
+    # a list of content panels to display.
+    panels: [ContentPanel!]!
+}
+
+# an enumeration of the different content panel types
+enum ContentPanelType {
+    HERO
+    ENTITY_SCROLLER
+    ENTITY_LIST
+    TOP_LIST
+    EVENT_CALENDAR
+    EVENT_IMAGE_CALENDAR
+    ARTICLE
+    PILL_CONTAINER
+    SEARCH
+    WEEK_SELECTOR
+    ENTITY_CARD
+}
+
+enum EntitySource {
+    RECOMMENDED
+}
+
+# The kind of entity a panel source produces.
+enum SourceEntityType {
+    EVENT
+    VENUE
+    TAG
+    PERFORMER
+}
+
+# How a panel source selects its entities: MANUAL (the admin picks specific
+# entities by path) or QUERY (entities are produced dynamically by a query).
+enum SourceMode {
+    MANUAL
+    QUERY
+}
+
+# Relative date windows for an event query, resolved at request time.
+enum DateRangePreset {
+    TODAY
+    NEXT_24_HOURS
+    THIS_WEEKEND
+    NEXT_7_DAYS
+    ALL_UPCOMING
+}
+
+# Ordering applied to a resolved set of events: SCORE (Vegasful score,
+# descending) or DATE (chronological by event date/time).
+enum SortOrder {
+    SCORE
+    DATE
+}
+
+# The presentation order of a panel's resolved entities (list/scroller panels):
+# SORTED (keep the source order), RANDOM (reshuffled each request), or DATE
+# (chronological by event date/time).
+enum DisplayOrder {
+    SORTED
+    RANDOM
+    DATE
+}
+
+# A date range for an event query, either a relative preset or explicit bounds.
+type DateRange {
+    # a relative preset, resolved at request time
+    preset: DateRangePreset
+
+    # an explicit lower bound (ISO-8601 instant)
+    from: String
+
+    # an explicit upper bound (ISO-8601 instant)
+    to: String
+}
+
+# The query parameters for an event source.
+type EventQuery {
+    # venue entity paths to draw events from
+    venues: [String!]
+
+    # tag entity paths to filter by
+    tags: [String!]
+
+    # the date range for the query
+    dateRange: DateRange
+
+    # an optional minimum score floor
+    minScore: Float
+
+    # ordering applied before `limit`. Defaults to SCORE when `limit` is set,
+    # otherwise DATE (preserving the original behavior).
+    sort: SortOrder
+
+    # if set, take the top-N after sorting; if unset, the full list
+    limit: Int
+
+    # when true, the query draws from the recently-announced stream (the events
+    # most recently added to the site, newest and highest-scoring first) rather
+    # than querying by event date. `venues`, `tags` and `dateRange` do not apply
+    # to such a query and are ignored; `minScore`, `sort` and `limit` still do,
+    # and leaving `sort` unset preserves the stream's own ordering.
+    recentlyAnnounced: Boolean
+}
+
+# Defines where a panel's entities come from. When present, it is resolved into
+# the panel's `entities` at request time.
+type PanelSource {
+    # the kind of entity this source produces
+    entityType: SourceEntityType!
+
+    # how the entities are selected
+    mode: SourceMode!
+
+    # MANUAL mode: explicit entity paths
+    manual: [String!]
+
+    # QUERY mode (events): the query parameters. Deprecated in favor of
+    # `eventQueries`; retained so existing panels keep resolving.
+    eventQuery: EventQuery
+
+    # QUERY mode (events): one or more queries whose results are unioned
+    # (deduped). Each query is independently scoped and limited.
+    eventQueries: [EventQuery!]
+
+    # ordering applied to the unioned result of all queries (before `limit`)
+    sort: SortOrder
+
+    # if set, take the top-N of the unioned result after sorting
+    limit: Int
+
+    # if set, the panel is omitted from the view entirely when the final
+    # resolved entity count (after `limit`) is below this threshold. Used to
+    # suppress panels that would show too few items to be worthwhile.
+    minimum: Int
+
+    # when true, collapse events that share a parent (e.g. multiple showtimes of
+    # the same show) to a single representative, keeping the best-ranked one.
+    deduplicate: Boolean
+}
+
+# Flags that can be provided to a panel to affect its behavior. HIDE_DATES and
+# HIDE_TIMES opt out of the date/time display on panels that show them by
+# default (e.g. ENTITY_LIST). SHOW_DATES and SHOW_TIMES are the opposite: opt-in
+# badges for panels that omit them by default (e.g. ENTITY_SCROLLER,
+# ENTITY_CARD), and have no effect on panels that already show them. The two are
+# independent, so a scroller of tonight's events can show times alone, and each
+# is only rendered for entities that actually carry one.
+#
+# No inline comments inside this enum body: AppSync fails to parse them.
+enum ContentPanelFlag {
+    MAIN_TITLE_HERO
+    HIDE_DATES
+    HIDE_TIMES
+    SHOW_DATES
+    SHOW_TIMES
+}
+
+# defines a content panel within a view
+type ContentPanel {
+    # unique identifier for the panel
+    id: ID!
+    
+    type: ContentPanelType!
+
+    # a title for the panel
+    title: String
+
+    # a link for the title of the panel
+    titleLink: String
+
+    # a sub-title of the view
+    subTitle: String
+
+    # a link for the sub title
+    subTitleLink: String
+
+    # a set of images for the panel
+    images: [Image!]
+
+    # rich text content for the panel
+    content: String
+
+    # a list of entities used in the panel
+    entities: [Entity!]
+
+    # a list of entities that can be used for filtering content on this panel.
+    entityFilters: [Entity!]
+
+    # parent tags configured as filter groups for this panel. Each tag's child
+    # tags become the selectable options in a filter control rendered above the
+    # panel's events. Additive: clients that do not request this field are
+    # unaffected.
+    filterTags: [Tag!]
+
+    # defines a source for entities if they can't be delivered in this payload.
+    entitiesSource: EntitySource
+
+    # structured definition of where this panel's entities come from. When set,
+    # it supersedes `entities`/`entitiesSource` and is resolved into `entities`.
+    source: PanelSource
+
+    # the slug of an article to pull live content from. For HERO panels this
+    # fills the title and image; for other panels it fills the body content.
+    articleSource: String
+
+    # presentation order of the resolved entities (list/scroller panels)
+    displayOrder: DisplayOrder
+
+    # a list of links (used by the PILL_CONTAINER type)
+    links: [ContentViewLink!]
+
+    # a set of flags that can be used by clients to render
+    flags: [ContentPanelFlag!]
+
+    # for responsive layouts (in pixels)
+    minWidth: Int
+    maxWidth: Int
+}
+
+# A content view, which is made up of a series of section
+type ContentView {
+    # an optional title of the view
+    title: String
+
+    # a summary of the information in the content view
+    summary: String
+
+    # the main content, typically the lead-in or main content of an article.
+    content: String
+
+    # optional images
+    images: [Image!]
+
+    # a list of content sections
+    sections: [ContentViewSection!]
+
+    # a list of extra links to include in the view
+    links: [ContentViewLink!]
+}
+
+# A link to display on the content view.
+type ContentViewLink {
+    # the navigation path
+    path: String!
+
+    # the name of the link
+    name: String!
+
+    # a description (generally used for a tool tip)
+    description: String
+
+    # the type of link (for custom types like date selection, etc.)
+    type: ContentViewLinkType!
+}
+
+enum ContentViewLinkType {
+    NORMAL
+    DATE_SELECT
+}
+
+# A section in a content view
+type ContentViewSection {
+    # The type of view to render
+    type: ContentViewType!
+    # the title of the section
+    title: String!
+    # the "more" link for the section
+    link: String
+    # the list of content to render
+    content: [ContentViewEntity!]
+
+    # if the content must be retrieved by the client, a source is provided,
+    # generally for user-specific content.
+    source: ContentSource
+
+    # HTML to go along with the section
+    contentHtml: String
+}
+
+type ContentViewEntity implements Entity {
+    id: ID!
+    name: String
+    description: String
+    images: [Image!]
+    tags: [Tag!]
+
+    # the path to this entity, which can be used for URLs to access the entity page or data (i.e. /performers/123)
+    path: String
+
+    # Not supported for content views
+    events(input: EventSearch!): EventSearchResults!
+
+    # for a UI, the name of the container of the entity. This is defined by the server,
+    # and could be a date, or a venue or really any text, and the client should render as-is.
+    containerName: String
+
+    # the path to link to the container of this entity
+    containerPath: String
+
+    # an optional action, for special cases
+    action: ContentViewEntityAction
+}
+
+enum ContentViewEntityAction {
+    DATE_SELECT
+}
+
+# Top level account access
+type Accounts {
+    me: Account
+
+    # create a temp, anonymous account, and return the auth key. This allows us to register
+    # device tokens, track likes, etc. for first time users. When the login with an account,
+    # we'll merge this information.
+    createAnonymous(input: CreateAnonymousInput!): CreateAccountResponse!
+
+    # Exchange a valid refresh token for a fresh token pair. Callable as a guest: the client's
+    # access token may already be expired, so this must not require one — the refresh token is the
+    # proof of identity. Refresh tokens rotate, so the returned token carries a new refresh token
+    # that replaces the one presented; the old one is invalidated. The `token` field is the same
+    # JSON-encoded token payload returned by `createAnonymous` and the sign-in flow.
+    refresh(input: RefreshTokenInput!): CreateAccountResponse!
+}
+
+# Input for creating an anonymous account.
+input CreateAnonymousInput {
+    # optionally include the device token registration
+    device: DeviceTokenRegistration
+}
+
+# Input for refreshing an access token.
+input RefreshTokenInput {
+    # the refresh token previously issued to this client
+    refreshToken: String!
+}
+
+# Response when creating an anonymous account
+type CreateAccountResponse {
+    # the user id
+    id: ID!
+    # the auth token
+    token: String!
+
+}
+
+# Access to an account.
+type Account {
+    # the date the account was created.
+    createDate: AWSDateTime!
+
+    # Register the device token for notifications
+    registerDevice(input: DeviceTokenRegistration!): Boolean!
+
+    # called to unregister a device (when a user logs out for example).
+    unregisterDevice(input: DeviceTokenRegistration!): Boolean!
+}
+
+# The client support module
+type ClientSupport {
+    onboarding: Onboarding!
+
+    # submit some kind of event log. Data must be JSON.
+    logClientEvent(data: String!): Boolean!
+}
+
+# Configuration options during setup.
+type Onboarding {
+    prefSelection: [OnboardingPref!]!
+}
+
+# defines a screen to select some preference options.
+type OnboardingPref {
+    # the title of the screen
+    title: String
+
+    # description text to display
+    description: String
+
+    # a list of entities to choose from. Those selected should be 'liked' by the client.
+    entities: [Entity!]!
+}
+
+# Access to auxiliary content
+type AuxContent {
+    # the onboarding controller
+    onboarding: Onboarding!
+
+    # the aux features controller.
+    features: AuxFeatures!
+}
+
+# Access to auxiliary features
+type AuxFeatures {
+    feature(id: ID!, input: ViewQuery): ViewConfiguration!
+}
