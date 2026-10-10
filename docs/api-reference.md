@@ -213,6 +213,34 @@ The function is in common code. The JVM `ServerRequestSelection.forRootField` ha
 
 `GraphQLResolverErrorFactory.Generic` records `Internal Server Error`. `GraphQLResolverErrorFactory.WithExceptionDetails` records the exception message and a `stacktrace` extension. Use it only where the errors never reach an untrusted client.
 
+## Document selections
+
+A request that arrives as a GraphQL document, such as an HTTP POST, builds its selection with `RequestSelection.forOperation`. It is the common equivalent of constructing the JVM `ServerRequestSelection` over `parseGraphQLOperation(query).selectionSet`, and it runs on every target, including Kotlin/Native:
+
+```kotlin
+val errors = mutableListOf<GraphQLError>()
+val root = RequestSelection.forOperation(
+    query = request.query,
+    variables = request.variables,
+    errors = errors,
+    errorFactory = GraphQLResolverErrorFactory.Generic,
+    operationName = request.operationName,
+)
+val data = QueryResolver(context).gqlSelect(root)
+```
+
+`RequestOperation.parse` takes the same parameters and also reports whether the operation is a query, a mutation, or a subscription, so that a caller can choose the root to resolve.
+
+- Each field is keyed by its response name, which is its alias when the document gives one.
+- An inline fragment's type condition becomes the `typeName` of the fields that it selects, and a named fragment is expanded in place with its type condition. The JVM version has no model of named fragments.
+- `parameters` renders each argument as the string form of its JSON. A float literal reads as `java.math.BigDecimal` prints it, so `1e3` is `1E+3`.
+- A variable that an argument refers to is replaced by its value in `variables`, or by `JsonNull` when absent. The defaults of variable definitions are not applied, as in the JVM version.
+- The selection is not validated against the schema, and `@skip` and `@include` are not applied.
+- Without an `operationName`, the document's first definition must be an operation, and it is used, as `parseGraphQLOperation` does. With a name, the operation of that name is used.
+- A document that cannot be parsed, or holds no operation to select, throws `IllegalArgumentException`.
+
+`Route.graphQL(errorFactory) { query { ... }; mutation { ... } }` in `server-ktor` is available in common code and builds its selections this way, so it also runs on Kotlin/Native. The route always runs the document's first operation and ignores the request's `operationName`, as it did before.
+
 ## Request scope and batching
 
 The context factory has a `GraphQLRequestScope` receiver. It owns cleanup actions and request batch loaders.

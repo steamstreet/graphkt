@@ -1,0 +1,176 @@
+# Edge-case documents for the parity test. Documents are separated by a line of three dashes
+# after a comment. A "# variables:" comment gives the request's variables as JSON, and a
+# "# name:" comment names the document.
+
+# name: anonymous shorthand
+{ venues { name id } events { count } }
+# ---
+# name: named query without variables
+query Home { events { upcoming { id name } } }
+# ---
+# name: every variable type
+# variables: {"s": "text \"quoted\" \\ back", "i": 42, "neg": -7, "big": 12345678901234567890, "f": 1.5, "e": 1e3, "t": true, "f2": false, "n": null, "l": [1, 2, [3, "x"]], "o": {"a": 1, "b": {"c": [true, null]}}, "empty": [], "eo": {}, "u": "café 🎰"}
+query Types($s: String, $i: Int, $neg: Int, $big: Int, $f: Float, $e: Float, $t: Boolean, $f2: Boolean, $n: String, $l: [Int], $o: Filter, $empty: [Int], $eo: Filter, $u: String, $missing: String) {
+  search(s: $s, i: $i, neg: $neg, big: $big, f: $f, e: $e, t: $t, f2: $f2, n: $n, l: $l, o: $o, empty: $empty, eo: $eo, u: $u, missing: $missing, extra: $notDeclared) { id }
+}
+# ---
+# name: literal scalars
+{
+  field(a: 0, b: -0, c: 7, d: -42, e: 9223372036854775807, f: 9223372036854775808, g: -9223372036854775809, h: 123456789012345678901234567890) { id }
+}
+# ---
+# name: literal floats
+{
+  field(a: 0.0, b: -0.0, c: 1.5, d: 1.50, e: 100.0, f: 0.0001, g: 0.000001, h: 0.0000001, i: 1e3, j: 1E3, k: 1e+3, l: 1e-3, m: 1.0e10, n: -2.5e-3, o: 1.5E+20, p: 12345.6789, q: 0.1e1, r: 10e-1, s: 1e0, t: 0e5, u: 123456789.123456789e5, v: 3.14159265358979323846) { id }
+}
+# ---
+# name: literal strings and enums
+{
+  field(a: "plain", b: "esc \" \\ \/ \b \f \n \r \t", c: "unicode é 中 🎰", d: "", e: "café", f: NEWEST, g: true, h: false, i: null, j: SOME_ENUM_1, k: "  spaced  ") { id }
+}
+# ---
+# name: block strings
+{
+  field(a: """block""", b: """
+    indented
+      more
+    back
+  """, c: """with "quotes" and \""" escaped""", d: """""", e: """   """) { id }
+}
+# ---
+# name: lists and objects
+{
+  field(a: [], b: [1, 2, 3], c: [[1], [2, [3]]], d: {}, e: {x: 1, y: "two", z: [3.5, NEWEST, null]}, f: {x: {y: {z: {}}}}, g: [{a: 1}, {a: 2}], h: {dup: 1, dup: 2, other: 3}) { id }
+}
+# ---
+# name: variables inside literals
+# variables: {"v": 5, "w": "text", "list": [1, 2], "obj": {"k": "v"}}
+query ($v: Int, $w: String, $list: [Int], $obj: Filter) {
+  field(a: [$v, $v], b: {x: $v, y: [$w, "lit"]}, c: $list, d: $obj, e: [$undefined], f: {g: $undefined}) { id }
+}
+# ---
+# name: variable defaults are not applied
+query Defaults($a: Int = 5, $b: String = "dflt", $c: [Int] = [1, 2]) {
+  field(a: $a, b: $b, c: $c) { id }
+}
+# ---
+# name: variable defaults overridden
+# variables: {"a": 9}
+query Defaults($a: Int = 5, $b: String = "dflt") {
+  field(a: $a, b: $b) { id }
+}
+# ---
+# name: aliases
+{
+  first: search(limit: 1) { id name }
+  all: search { id name }
+  search { id }
+  renamed: venue(id: "x") { title: name nested: details { alias: field } }
+}
+# ---
+# name: aliased with the same field and different arguments
+{
+  a: events(limit: 1) { id }
+  b: events(limit: 2) { id }
+  c: events(limit: 3) { id }
+}
+# ---
+# name: inline fragments with type conditions
+{
+  entity(id: "1") {
+    __typename
+    id
+    ... on Venue { name address }
+    ... on Event { title start { date } }
+    ... on Performer { name }
+  }
+}
+# ---
+# name: inline fragment without a type condition
+{
+  entity(id: "1") {
+    id
+    ... { name extra }
+    ... @include(if: true) { more }
+  }
+}
+# ---
+# name: inline fragment with a directive and arguments
+{
+  entity(id: "1") {
+    ... on Venue @skip(if: false) { items(first: 5) { id } }
+  }
+}
+# ---
+# name: inline fragments beside fields in order
+{
+  a { x ... on T { y } z ... on U { w v } q }
+}
+# ---
+# name: inline fragments below inline fragments' fields
+{
+  a { ... on T { child { ... on U { leaf } plain } } }
+}
+# ---
+# name: directives on fields and operations
+query Dir($v: Boolean) @live {
+  a @skip(if: true) { b @include(if: $v) }
+  c: d @custom(arg: [1, 2]) { e }
+}
+# ---
+# name: multiple operations uses the first
+# variables: {"v": 1}
+query First($v: Int) { first(v: $v) { id } }
+query Second { second { id } }
+mutation Third { third { id } }
+# ---
+# name: mutation
+# variables: {"input": {"name": "x", "tags": ["a", "b"]}}
+mutation Create($input: Input) { create(input: $input) { id name } }
+# ---
+# name: subscription
+subscription Watch { events { id } }
+# ---
+# name: comments commas and odd whitespace
+{
+  # a comment
+  a , b ,, c   (  x : 1 , y : 2 ) { d
+    # another
+    e }
+
+
+  f
+}
+# ---
+# name: keywords as names
+{
+  query { fragment { on { type { true { null { mutation { subscription { schema } } } } } } } }
+  on: query(on: on, fragment: fragment) { x }
+}
+# ---
+# name: introspection names
+{ __typename __schema { types { name } } __type(name: "Query") { fields { name } } }
+# ---
+# name: deep nesting
+{ a { b { c { d { e { f { g { h { i { j { k { l { m { n { o { p } } } } } } } } } } } } } } } }
+# ---
+# name: many siblings
+{ f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 f28 f29 f30 }
+# ---
+# name: names with underscores and digits
+{ _a a_1 A1b __x _ field_name_2(arg_1: 1, _arg2: 2) { _id } }
+# ---
+# name: empty variables object
+# variables: {}
+query ($a: Int) { f(a: $a) { id } }
+# ---
+# name: arguments on nested fields with variables
+# variables: {"id": "abc", "limit": 10, "after": null}
+query Page($id: ID!, $limit: Int, $after: String) {
+  venues {
+    venue(id: $id) {
+      events(limit: $limit, after: $after) { items { id title } next }
+      photos(first: $limit, filter: {kind: "hero", sizes: [1, 2]}) { url }
+    }
+  }
+}

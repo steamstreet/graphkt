@@ -1,3 +1,8 @@
+// The multifile facade keeps this file's class, Jvm_serverKt, and the buildResponse that moved to
+// common code in it, so existing JVM callers stay binary compatible.
+@file:JvmMultifileClass
+@file:JvmName("Jvm_serverKt")
+
 package com.steamstreet.graphkt.server
 
 import com.steamstreet.graphkt.GraphQLError
@@ -189,19 +194,6 @@ public class ServerRequestSelection(
                 errorFactory = errorFactory,
                 keyByFieldName = true,
             )
-        }
-    }
-}
-
-public fun buildResponse(data: JsonElement, errors: List<GraphQLError>): JsonObject {
-    return buildJsonObject {
-        put("data", data)
-        if (errors.isNotEmpty()) {
-            put("errors", buildJsonArray {
-                errors.forEach {
-                    add(json.encodeToJsonElement(GraphQLError.serializer(), it))
-                }
-            })
         }
     }
 }

@@ -1,0 +1,1023 @@
+type AdminMutation {
+    venues: AdminVenues!
+    events: AdminEvents!
+    performers: AdminPerformers!
+    articles: AdminArticles!
+    tags: AdminTags!
+    images: AdminImages!
+
+    # Things to do — attractions with opening hours. See specs/things-to-do.md.
+    thingsToDo: AdminThingsToDo!
+
+    # Access to the loaders administrator
+    loaders: AdminLoaders!
+
+    # Run CloudWatch Logs Insights queries against the service's log groups.
+    logs: AdminLogs!
+
+    # the domain of this server
+    domain: String
+}
+
+# Generic access to CloudWatch Logs Insights. Start a query, then poll for
+# results. This lets admin tools run arbitrary log queries without a
+# purpose-built API for each one.
+type AdminLogs {
+    # Start an Insights query. Returns the query id to poll with results().
+    startQuery(input: LogQueryInput!): ID!
+
+    # Get the status and (when complete) results of a started query.
+    results(queryId: ID!): LogQueryResult!
+}
+
+input LogQueryInput {
+    # the Insights query string
+    query: String!
+
+    # the log group(s) to query. If omitted, the stage's event log group
+    # (/aws/events/vegasful-<stage>) is used.
+    logGroups: [String!]
+
+    # the start of the time window. Defaults to 24 hours before 'end'.
+    start: AWSDateTime
+
+    # the end of the time window. Defaults to now.
+    end: AWSDateTime
+
+    # the maximum number of rows to return.
+    limit: Int
+}
+
+type LogQueryResult {
+    # the query status: Running, Complete, Failed, Cancelled, Timeout, etc.
+    status: String!
+
+    # the result rows. Populated once the status is Complete.
+    rows: [LogQueryRow!]!
+
+    # statistics about the query execution.
+    statistics: LogQueryStatistics
+}
+
+# A single result row, a list of field/value pairs as returned by Insights.
+type LogQueryRow {
+    fields: [LogQueryField!]!
+}
+
+type LogQueryField {
+    field: String!
+    value: String
+}
+
+type LogQueryStatistics {
+    recordsMatched: Float
+    recordsScanned: Float
+}
+
+type AdminImages {
+    # get a URL where the image can be uploaded.
+    upload(input: ImageUpload!): Image!
+}
+
+input ImageUpload {
+    # base 64 encoded image data
+    data: String
+
+    # the mime-type of the image. Recommended if data is provided (and ignored if uri is provided).
+    type: String
+
+    # the location of the image. Only one of data or uri can be specified
+    uri: String
+}
+
+type AdminVenues {
+    venue(id: ID!): AdminVenue!
+
+    # add a new venue
+    add(id: ID!, input: VenueUpdateInput!): AdminVenue!
+}
+
+type AdminThingsToDo {
+    thing(id: ID!): AdminThingToDo!
+
+    # every thing to do, for the admin list. There are a few hundred of these,
+    # so this is one query rather than a paged search.
+    all: [AdminThingToDo!]!
+
+    add(id: ID!, input: ThingUpdateInput!): AdminThingToDo!
+}
+
+type AdminThingToDo {
+    id: ID!
+
+    layers: [AdminThingLayer!]!
+    layer(id: ID!): AdminThingLayer
+
+    local: AdminThingLayer!
+    resolved: ThingToDo!
+
+    delete: Boolean!
+}
+
+type AdminThingLayer {
+    name: String
+    description: String
+    tagline: String
+    summary: String
+    tags: [Tag!]
+    images: [Image!]!
+    aliases: [String!]
+    venue: Venue
+    links: [SocialLink!]
+
+    # The opening hours, as the stored JSON. Submitted and returned as a string
+    # rather than a nested input hierarchy: the shape gains fields when the
+    # verification sweep lands, and a deep GraphQL input would have to move with
+    # it through an AppSync deploy each time.
+    hours: String
+
+    # Where the hours were read from, as stored JSON. Populated by hand when the
+    # record is created so the eventual verification sweep has something to work
+    # from; nothing reads it yet.
+    hoursSources: String
+
+    typicalDuration: Int
+    priceFrom: Int
+    ticketsUrl: String
+    status: ThingStatus
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    update(input: ThingUpdateInput!): AdminThingLayer!
+}
+
+# The update information. Every field is nullable and absent means "leave
+# unchanged"; a blank string clears a nullable field. See the update-input
+# clearing convention in specs/content-model.md.
+input ThingUpdateInput {
+    name: String
+    description: String
+    tagline: String
+    summary: String
+
+    # the venue id
+    venue: String
+
+    # the tag ids
+    tags: [String!]
+
+    # the image hashes
+    images: [String!]
+
+    aliases: [String!]
+    links: [SocialLinkInput!]
+
+    # serialized OpeningHours. Rejected with the list of structural problems if
+    # it does not parse or does not validate.
+    hours: String
+
+    # serialized list of HoursSource
+    hoursSources: String
+
+    typicalDuration: Int
+    priceFrom: Int
+    ticketsUrl: String
+    status: ThingStatus
+    rankingScore: Int
+}
+
+# The lifecycle state of a thing to do.
+#
+# Values (no inline comments — AppSync rejects `#` inside an enum body):
+#   OPEN                — operating normally.
+#   CLOSED_TEMPORARILY  — shut for now, still listed.
+#   CLOSED_PERMANENTLY  — gone; suppressed from every surface.
+enum ThingStatus {
+    OPEN
+    CLOSED_TEMPORARILY
+    CLOSED_PERMANENTLY
+}
+
+type AdminVenue {
+    id: ID!
+    parent: Venue
+    children: [Venue!]!
+
+    layers: [AdminVenueLayer!]!
+    layer(id: ID!): AdminVenueLayer
+
+    local: AdminVenueLayer!
+    resolved: Venue!
+}
+
+type AdminVenueLayer {
+    name: String
+    description: String
+    address: Address
+    location: GPSCoordinates
+    links: [SocialLink!]
+    tags: [Tag!]
+    images: [Image!]!
+    aliases: [String!]
+
+    ticketsUrl: String
+
+    # the  venue to redirect to
+    redirect: Venue
+
+    # is this venue closed?
+    status: VenueStatus
+
+    # Update this layer
+    update(input: VenueUpdateInput!): AdminVenueLayer!
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # The activation stream events at this venue belong to. Null means MOST_RECENT.
+    # Inherited by child venues that do not set their own.
+    eventStream: EventStream
+
+    # Information about parking options for this venue
+    parking: String
+
+    # the id of a content view used to render this venue's page (see the public
+    # Venue.contentView field). Null when no custom view is configured.
+    contentView: String
+}
+
+# The update information
+input VenueUpdateInput {
+    name: String
+    description: String
+    address: AddressInput
+    location: GPSCoordinatesInput
+    links: [SocialLinkInput!]
+
+    # a url for tickets for the venue as a whole.
+    ticketsUrl: String
+
+    # the id of the parent
+    parent: String
+
+    # the tag ids
+    tags: [String!]
+
+    # the image hashes
+    images: [String!]
+
+    # a list of aliases
+    aliases: [String!]
+
+    redirect: String
+
+    status: VenueStatus
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # The activation stream events at this venue belong to. Null means MOST_RECENT.
+    # Inherited by child venues that do not set their own.
+    eventStream: EventStream
+
+    # Information about parking options for this venue
+    parking: String
+
+    # the id of a content view used to render this venue's page. Blank/empty
+    # clears it. See the public Venue.contentView field.
+    contentView: String
+}
+
+input SocialLinkInput {
+    # the type of link
+    type: String!
+
+    # the locator, the format depending on the type of link. If null, the link will be removed.
+    locator: String
+}
+
+input AddressInput {
+    street: String
+    city: String
+    state: String
+    zip: String
+    country: String
+}
+
+type AdminPerformers {
+    # get a performer by id.
+    performer(id: ID!): AdminPerformer!
+
+    # Add a new performer.
+    add(id: ID!, input: PerformerUpdateInput!): AdminPerformer!
+
+    # Perform enhancement. If apply is true, the enhancement will
+    # be applied to the performer. Otherwise, a version of the performer
+    # with the applied data will be returned, but the caller must perform
+    # the update.
+    enhance(id: ID!, apply: Boolean!): PerformerUpdate
+}
+
+# Result from a source data search
+type SourceDataSearchResult {
+    # the id of the entity from the source data
+    id: ID!
+
+    # a description of the entity
+    description: String
+}
+
+# The verification/lifecycle state of a performer. Admin-only: this drives
+# whether a performer is followable and whether high-confidence links to it are
+# eligible to trigger notifications. It is deliberately not exposed in the public
+# API (unlike VenueStatus, which is useful public information).
+#
+# Values (no inline comments — AppSync rejects `#` inside an enum body):
+#   VERIFIED       — identity confirmed against a trusted source; followable, may notify.
+#   UNVERIFIED     — real act, no external corroboration; linked/recommendable, not followable.
+#   PENDING_REVIEW — awaiting human adjudication in the admin review queue.
+#   DISABLED       — suppressed; not surfaced anywhere.
+enum PerformerStatus {
+    VERIFIED
+    UNVERIFIED
+    PENDING_REVIEW
+    DISABLED
+}
+
+type AdminPerformer {
+    id: ID!
+
+    layers: [AdminPerformerLayer]!
+    layer(id: ID!): AdminPerformerLayer
+
+    local: AdminPerformerLayer!
+    resolved: Performer!
+}
+
+type AdminPerformerLayer {
+    name: String
+    description: String
+
+    # A short 2-3 sentence summary of the performer (plain text), for event cards.
+    summary: String
+    images: [Image!]
+    aliases: [String!]
+    tags: [Tag!]
+
+    # The wikipedia id for this performer
+    wikiIdentifier: String
+
+    # The verification/lifecycle state of the performer.
+    status: PerformerStatus
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # Update this layer
+    update(input: PerformerUpdateInput!): AdminPerformerLayer!
+}
+
+# The update information
+input PerformerUpdateInput {
+    name: String
+    description: String
+
+    # A short 2-3 sentence summary of the performer (plain text), for event cards.
+    summary: String
+
+    # the tag ids
+    aliases: [String!]
+
+    # the tag ids
+    tags: [String!]
+
+    # the image hashes
+    images: [String!]
+
+    # The wikipedia id for this performer
+    wikiIdentifier: String
+
+    # The verification/lifecycle state of the performer.
+    status: PerformerStatus
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+}
+
+type PerformerUpdate {
+    name: String
+    description: String
+
+    # A short 2-3 sentence summary of the performer (plain text), for event cards.
+    summary: String
+
+    # the tag ids
+    aliases: [String!]
+
+    # the tag ids
+    tags: [String!]
+
+    # the image hashes
+    images: [String!]
+
+    # The wikipedia id for this performer
+    wikiIdentifier: String
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+}
+
+# Manages access to events
+type AdminEvents {
+    # get an event by id
+    event(id: ID!): AdminEvent!
+
+    # Get the next event for review
+    reviewNext: AdminEvent
+
+    # Add a new event.
+    add(input: EventUpdateInput!): AdminEvent!
+
+    # get a list of recently updated events for review
+    forReview: [Event!]!
+
+    # perform an event merge. Returns the target event.
+    # A merge includes the following operations:
+    # - copies all aliases from the source and adds them to the target's alias list
+    # - updates the parent id of all children of the source events to the target id
+    # - deletes the source events (this is a delete, not a disable)
+    # this operation may not happen immediately, so don't assume much about the returned entity.
+    merge(input: MergeInput!): AdminEvent!
+
+    # Perform enhancement. If apply is true, the enhancement will
+    # be applied to the event. Otherwise, a version of the event
+    # with the applied data will be returned, but the caller must perform
+    # the update.
+    enhance(id: ID!, apply: Boolean!): EventUpdate
+}
+
+input MergeInput {
+    # the event that the sources will be merged into
+    target: ID!
+
+    # the list of sources that will be merged into the target.
+    sources: [ID!]!
+}
+
+type AdminEvent {
+    id: ID!
+
+    layers: [AdminEventLayer!]!
+    layer(id: ID!): AdminEventLayer
+
+    local: AdminEventLayer!
+    resolved: Event!
+
+    # Get the parent event. Can be null.
+    parent: Event
+
+    # The list of children for this event
+    children: [Event!]!
+
+    # submit a review of this event. Returns the next event to review
+    review(input: EventUpdateInput!): String
+
+    # submit a message to rebuild the event
+    rebuild(message: String): Boolean!
+
+    # disable or delete an event
+    disable(delete: Boolean!): Boolean!
+
+    # the timestamp that this event was deactivated. null if still active.
+    deactivatedTs: AWSDateTime
+
+    # the timestamp that this event was most recently activated. null if inactive.
+    activatedTs: AWSDateTime
+
+    # Generate a new AI-rendered social media slide image for this event and
+    # upload it to the media CDN. Each call generates a new variation; previous
+    # uploads are kept. Returns the URL where the image can be viewed and
+    # downloaded.
+    #
+    # `dateStyle` controls how the event's date is rendered in the slide
+    # prompt: DEFAULT (full "Fri, May 25, 2026"), TODAY, TONIGHT, or
+    # DAY_OF_WEEK ("FRIDAY"). Defaults to DEFAULT.
+    #
+    # `omitTime` drops the "at HH:MM" suffix from the date line. Defaults
+    # to false.
+    #
+    # `includeTagline` controls whether the event's tagline is included in
+    # the prompt. Defaults to true (matches the previous unconditional
+    # behavior).
+    #
+    # `includeVenue` controls whether the event's venue is referenced at
+    # all: both the "Venue: <name>" line in the prompt and the venue's
+    # primary image (used as a reference image alongside the event image).
+    # Set to false for single-venue slideshows where repeated venue
+    # branding would be distracting. Defaults to true.
+    #
+    # `renderer` chooses the generation backend. OPENAI_GPT_IMAGE_2 (gpt-image-2)
+    # and GEMINI_NANO_BANANA_PRO (gemini-3-pro-image) both run via SlideshowService
+    # — slower (~15-30s) and non-deterministic, useful for bespoke/creative slides.
+    # TEMPLATE uses the deterministic Java2D template renderer — sub-second,
+    # brand-consistent, recommended for bulk production. No default: callers must
+    # opt in.
+    #
+    # `forceCover` (TEMPLATE only) bypasses the wide-aspect letterbox
+    # heuristic and always uses cover-fit + center-crop, regardless of the
+    # source image's proportions. Use when the heuristic mis-classifies a
+    # particular event's promo image. Ignored by the AI renderer.
+    generateSocialImage(
+        renderer: SocialImageRenderer!,
+        dateStyle: SocialImageDateStyle! = DEFAULT,
+        omitTime: Boolean! = false,
+        includeTagline: Boolean! = true,
+        includeVenue: Boolean! = true,
+        forceCover: Boolean! = false,
+    ): String!
+
+    # Check the status of a previously-started social-image generation. `url`
+    # is the URL string returned by generateSocialImage. The server inspects
+    # the corresponding S3 objects (the PNG and its .error.txt sibling) and
+    # reports back. No state is persisted on the server — the URL is the only
+    # handle.
+    socialImageStatus(url: String!): SocialImageStatus!
+}
+
+# Status of an in-flight or completed social-image generation.
+type SocialImageStatus {
+    state: SocialImageState!
+
+    # The viewable PNG URL. Populated only when state is READY. Identical to
+    # the input `url` argument in that case; null otherwise.
+    url: String
+
+    # Populated when state is FAILED. The `error` field from the JSON body of
+    # the `.error.txt` sibling. Null otherwise.
+    error: String
+}
+
+# PENDING: neither the PNG nor an error sibling exists yet — caller should
+# poll again.
+# READY: the PNG exists at the input URL.
+# FAILED: an error sibling exists; the `error` field on SocialImageStatus is
+# populated.
+enum SocialImageState {
+    PENDING,
+    READY,
+    FAILED
+}
+
+# Controls how the event date is rendered in the social-image prompt.
+# DEFAULT: full date, e.g. "Fri, May 25, 2026".
+# TODAY: literal "TODAY".
+# TONIGHT: literal "TONIGHT".
+# DAY_OF_WEEK: just the weekday name, e.g. "FRIDAY".
+enum SocialImageDateStyle {
+    DEFAULT,
+    TODAY,
+    TONIGHT,
+    DAY_OF_WEEK
+}
+
+# Selects the social-image generation backend.
+# OPENAI_GPT_IMAGE_2: gpt-image-2 via SlideshowService — slow, non-deterministic, creative.
+# GEMINI_NANO_BANANA_PRO: Gemini gemini-3-pro-image (nano banana 2) via
+#   SlideshowService — slow, non-deterministic, creative.
+# TEMPLATE: deterministic Java2D template renderer — fast, brand-consistent.
+enum SocialImageRenderer {
+    OPENAI_GPT_IMAGE_2,
+    GEMINI_NANO_BANANA_PRO,
+    TEMPLATE
+}
+
+type AdminEventLayer {
+    layerId: String
+
+    name: String
+    description: String
+
+    date: AWSDate
+    time: AWSTime
+    duration: Int
+
+    # the time when this event is set to expire
+    expiration: AWSDateTime
+
+    ticketsUrl: String
+    sourceUrl: String
+
+    aliases: [String!]
+    images: [Image!]
+    excludedImages: [Image!]!
+
+    tags: [Tag!]
+    excludedTags: [Tag!]!
+
+    performers: [Performer!]
+    venue: Venue
+
+    # the timestamp when the layer was last updated
+    lastUpdated: AWSDateTime
+
+    update(input: EventUpdateInput!): AdminEventLayer!
+
+    # don't include this event or its children in the event catalog.
+    # this is different from disabled, which is more based on the state
+    # of the event.
+    excluded: Boolean
+
+    # the ranking score of this event, as entered.
+    rankingScore: Int
+
+    # a tagline for the event
+    tagline: String
+
+    # A list of names of performers that might be a part of this event.
+    suggestedPerformers: [String!]
+
+    # the id of a content view used to render this event's page (see the public
+    # Event.contentView field). Null when no custom view is configured.
+    contentView: String
+}
+
+input EventUpdateInput {
+    parent: String
+    name: String
+    description: String
+    venue: String
+
+    date: AWSDate
+    time: AWSTime
+    duration: Int
+
+    endDate: AWSDate
+    endTime: AWSTime
+
+    ticketsUrl: String
+    sourceUrl: String
+
+    aliases: [String!]
+
+    images: [String!]
+
+    # describes images that are NOT included, regardless of how the system inherits.
+    excludedImages: [String!]
+
+    excludedTags: [String!]
+
+    performers: [String!]
+
+    # should this event be excluded from browse and search results
+    excluded: Boolean
+
+    # The ranking score of this event. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # a tagline for the event. Normally written by the scorer on the ai layer;
+    # set it here to correct or replace that. Blank/empty clears it.
+    tagline: String
+
+    # A list of names of performers that might be a part of this event.
+    suggestedPerformers: [String!]
+
+    # a list of event tags. These include more information about the confidence.
+    eventTags: [EventTagInput!]
+
+    # the id of a content view used to render this event's page. Blank/empty
+    # clears it. See the public Event.contentView field.
+    contentView: String
+}
+
+input EventTagInput {
+    # the id of the tag.
+    id: ID!,
+    # A confidence score between 1-100
+    confidence: Int
+}
+
+type EventTag {
+    id: ID!,
+    name: String!,
+    confidence: Int
+}
+
+type EventUpdate {
+    parent: String
+    name: String
+    description: String
+    venue: String
+
+    date: AWSDate
+    time: AWSTime
+    duration: Int
+
+    endDate: AWSDate
+    endTime: AWSTime
+
+    ticketsUrl: String
+    sourceUrl: String
+
+    aliases: [String!]
+
+    images: [String!]
+
+    # describes images that are NOT included, regardless of how the system inherits.
+    excludedImages: [String!]
+
+    # a list of event tags. These include more information about the confidence.
+    eventTags: [EventTag!]
+
+    excludedTags: [String!]
+
+    performers: [String!]
+
+    # should this event be excluded from browse and search results
+    excluded: Boolean
+
+    # The ranking score of this event. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # a tagline for the event
+    tagline: String
+
+    # A list of names of performers that might be a part of this event.
+    suggestedPerformers: [String!]
+}
+
+input ArticleInput {
+    # the title. If null, the title is not updated
+    title: String
+
+    # the summary. If null, the summary is not updated. If empty, the summary is pulled from the content.
+    summary: String
+
+    # the content. If null, the content is not updated.
+    content: String
+
+    # a list of image ids. If null, images are not updated.
+    images: [String!]
+
+    # the list of paths to link to
+    links: [String!]
+}
+
+type AdminArticles {
+    # get an article
+    article(id: ID!): AdminArticle!
+
+    # Create a new article, passing an identifier
+    new(id: ID, input: ArticleInput!): AdminArticle!
+
+    # unpublished articles
+    drafts: [AdminArticle!]!
+
+    # get content with the given id. Content is very similar to an article, but there are different
+    # rules that govern it. It is not published.
+    content(id: ID!): AdminArticle!
+}
+
+type AdminArticle {
+    id: ID!
+    title: String
+
+    # The article summary (plain text).
+    summary: String
+
+    # The article content (HTML)
+    content: String
+
+    # Get the list of direct links for the article. These are links that are explicitly defined,
+    # as opposed to links generated from the content.
+    links: [Entity!]
+
+    # A list of links to all of the entities referenced by the article.
+    resolvedLinks: [Entity!]!
+
+    # A list of images
+    images: [Image!]
+
+    created: AWSDateTime!
+    updated: AWSDateTime!
+    published: AWSDateTime
+
+    # Update the article
+    update(input: ArticleInput!): AdminArticle!
+
+    # publish and un-publish an article
+    publish(time: AWSDateTime): AdminArticle!
+    unpublish: AdminArticle!
+
+    # Delete the article. Article must be unpublished.
+    delete(confirmation: Boolean!): Boolean!
+}
+
+type AdminTags {
+    all: [AdminTag!]!
+
+    tag(id: ID!): AdminTag!
+
+    # Add a new tags
+    add(id: ID!, input: TagUpdateInput!): AdminTag!
+}
+
+type AdminTag {
+    id: ID!
+
+    layers: [AdminTagLayer]!
+    layer(id: ID!): AdminTagLayer
+
+    local: AdminTagLayer!
+    resolved: Tag!
+
+    # resolved tags of this tag's children
+    children: [Tag!]
+
+    # the resolved parent of this tag.
+    parent: Tag
+}
+
+type AdminTagLayer {
+    name: String
+    description: String
+    images: [Image!]
+    childLimit: Int
+    parent: Tag
+    shadow: Boolean
+
+    # Should this tag describe a user's taste? False for tags that exist for
+    # curation or organization rather than to say something about a person, so
+    # that they never influence recommendations. Defaults to true.
+    personalize: Boolean
+    impliedTags: [Tag!]
+
+    pageTitle: String
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # Update this layer
+    update(input: TagUpdateInput!): AdminTagLayer!
+
+    # additional information provided to AI prompts to help understand the tag.
+    aiPromptInput: String
+
+    # the id of a content view used to render this tag's page (see the public
+    # Tag.contentView field). Null when no custom view is configured.
+    contentView: String
+}
+
+input TagUpdateInput {
+    # update then name
+    name: String
+
+    # update the parent id
+    parent: String
+
+    # update the description
+    description: String
+
+    # a list of image ids
+    images: [String!]
+
+    # is this a shadow tag, which doesn't appear anywhere
+    shadow: Boolean
+
+    # should this tag describe a user's taste? Set false for tags that exist for
+    # curation or organization rather than to say something about a person, so
+    # that they never influence recommendations. Defaults to true. Applies to
+    # this tag alone and is not inherited by its children.
+    personalize: Boolean
+
+    # a list of tags which will be use when this tag is assigned.
+    implied: [String!]
+
+    pageTitle: String
+
+    # The ranking score of this item. 30 is considered 'ordinary'
+    rankingScore: Int
+
+    # additional information provided to AI prompts to help understand the tag.
+    aiPromptInput: String
+
+    # the id of a content view used to render this tag's page. Blank/empty
+    # clears it. See the public Tag.contentView field.
+    contentView: String
+}
+
+type AdminLoaders {
+    # the list of modules
+    modules: [AdminLoaderModule!]!
+
+    # get a module
+    module(id: ID!): AdminLoaderModule!
+
+    # the list of loaders
+    loaders: [AdminLoader!]!
+
+    # get a loader
+    loader(id: ID!): AdminLoader!
+
+    # register a new loader
+    registerLoader(id: ID!, input: LoaderConfiguration!): AdminLoader!
+
+    # Remove a loader.
+    deregister(id: ID!): Boolean!
+}
+
+input LoaderConfiguration {
+    # the name of the loader
+    name: String
+
+    # the id of the module
+    module: ID
+
+    # the schedule to run the loader with (optional)
+    schedule: String
+
+    # A json string of the configuration that will be passed. Must be a JSON object.
+    parameters: String
+}
+
+# Represents the code that does the actual loading.
+type AdminLoaderModule {
+    id: ID!
+    name: String!
+}
+
+# The configuration of a loader
+type AdminLoader {
+    # The loader ID (generated)
+    id: ID!
+
+    # the name of the loader
+    name: String!
+
+    # the code that is run. Can be null if manually.
+    module: AdminLoaderModule
+
+    # an optional schedule to run the loader.
+    schedule: String
+
+    # Update this loader
+    update(input: LoaderConfiguration!): AdminLoader!
+
+    # configuration parameters (a JSON object)
+    parameters: String
+
+    # a list of recent loader executions
+    recentExecutions: [LoaderExecution!]!
+
+    # retrieve logs of the loader execution
+    logs(start: AWSDateTime!, end: AWSDateTime!): [LogEvent!]!
+
+    # execute the loader. Can optionally provide the data for execution
+    execute(input: LoaderExecutionInput): Boolean!
+
+    # publish data for a loader. An alternative to writing directly to the bucket.
+    publish(input: LoaderPublishInput!): Boolean!
+
+    # publish data for a loader. An alternative to writing directly to the bucket.
+    reprocess: Boolean!
+
+    # get the internal data saved with this loader
+    readInternalData(key: String!): String
+
+    # save internal data for this loader
+    saveInternalData(key: String!, data: String!): Boolean
+
+    # get the last loaded data
+    lastLoad: LoaderExecution
+}
+
+# Defines a log message
+type LogEvent {
+    # the timestamp of the log event
+    ts: AWSDateTime!
+
+    # the message associated with the event
+    message: String
+}
+
+input LoaderPublishInput {
+    # the data for execution. If not provided, the loader module will run.
+    data: String!
+
+    # is the data incomplete? If true, items will NOT be removed based on a diff of the data, and the
+    # new data will not become the new cached data.
+    incomplete: Boolean
+}
+
+input LoaderExecutionInput {
+    # logging information for the execution.
+    data: String
+}
+
+type LoaderExecution {
+    # the instant that the load took place
+    ts: AWSDateTime!
+
+    # the json that was loaded
+    events: String!
+}
