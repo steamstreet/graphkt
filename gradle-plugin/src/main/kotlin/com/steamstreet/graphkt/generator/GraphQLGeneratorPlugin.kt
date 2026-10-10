@@ -39,6 +39,8 @@ public class GraphQLGeneratorPlugin : Plugin<Project> {
             task.packageName.set(extension.packageName)
             task.generateClient.set(extension.client.enabled)
             task.generateServer.set(extension.server.enabled)
+            task.generateCommon.set(extension.common.enabled)
+            task.publicCommon.set(extension.common.publicDeclarations)
             task.generatedOutputDirectory.convention(target.layout.buildDirectory.dir("graphql/generated"))
             task.serverGeneratedOutputDirectory.convention(target.layout.buildDirectory.dir("graphql/server/generated"))
         }

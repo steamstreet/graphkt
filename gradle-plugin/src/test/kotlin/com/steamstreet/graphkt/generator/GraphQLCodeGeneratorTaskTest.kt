@@ -180,4 +180,45 @@ class GraphQLCodeGeneratorTaskTest {
         assertEquals(TaskOutcome.SUCCESS, disabled.task(":generateGraphQLCode")?.outcome)
         assertFalse(serverOutput.walkTopDown().any { it.isFile })
     }
+
+    @Test
+    fun `skips common declarations and exposes them publicly on request`(@TempDir projectDir: File) {
+        File(projectDir, "settings.gradle.kts").writeText("rootProject.name = \"graphkt-common-test\"")
+        val buildFile = File(projectDir, "build.gradle.kts")
+        fun configure(commonBlock: String) {
+            buildFile.writeText(
+                """
+                plugins {
+                    id("com.steamstreet.graphkt")
+                }
+
+                graphKt {
+                    schemaFiles.from(file("schema.graphql"))
+                    packageName.set("example.generated")
+                    $commonBlock
+                }
+                """.trimIndent(),
+            )
+        }
+        File(projectDir, "schema.graphql").writeText("type Query { greeting: String! }")
+        val runner = GradleRunner.create()
+            .withProjectDir(projectDir)
+            .withTestKitDir(File(projectDir, "test-kit"))
+            .withPluginClasspath()
+            .withArguments("generateGraphQLCode", "--stacktrace")
+        val common = File(projectDir, "build/graphql/generated/example/generated/common.kt")
+
+        configure("")
+        runner.build()
+        assertTrue(common.readText().contains("internal val json"))
+
+        configure("common { publicDeclarations.set(true) }")
+        runner.build()
+        assertTrue(common.readText().contains("public val json"))
+
+        configure("common { enabled.set(false) }")
+        runner.build()
+        assertFalse(common.exists())
+        assertTrue(File(projectDir, "build/graphql/generated/example/generated/client/query.kt").isFile)
+    }
 }

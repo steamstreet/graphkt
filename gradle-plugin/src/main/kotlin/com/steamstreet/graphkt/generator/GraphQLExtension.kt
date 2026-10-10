@@ -18,6 +18,15 @@ public abstract class GraphKtFeature @Inject constructor(objects: ObjectFactory)
     public val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
 }
 
+/** Configures the shared declarations (`common.kt`) that client and server code both use. */
+public abstract class GraphKtCommon @Inject constructor(objects: ObjectFactory) {
+    /** Generate `common.kt`. Disable it in a module whose dependencies already provide the same file. */
+    public val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+
+    /** Declare `json` public, so a module that does not generate `common.kt` can use it. */
+    public val publicDeclarations: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+}
+
 /** Lazy configuration for GraphKt source generation. */
 public abstract class GraphQLExtension @Inject constructor(objects: ObjectFactory) {
     private var legacySchemaPath: String? = null
@@ -27,6 +36,7 @@ public abstract class GraphQLExtension @Inject constructor(objects: ObjectFactor
     public val packageName: Property<String> = objects.property(String::class.java)
     public val client: GraphKtFeature = objects.newInstance(GraphKtFeature::class.java)
     public val server: GraphKtFeature = objects.newInstance(GraphKtFeature::class.java)
+    public val common: GraphKtCommon = objects.newInstance(GraphKtCommon::class.java)
 
     public fun client(action: Action<GraphKtFeature>) {
         action.execute(client)
@@ -34,6 +44,10 @@ public abstract class GraphQLExtension @Inject constructor(objects: ObjectFactor
 
     public fun server(action: Action<GraphKtFeature>) {
         action.execute(server)
+    }
+
+    public fun common(action: Action<GraphKtCommon>) {
+        action.execute(common)
     }
 
     @Deprecated("Use schemaFiles.from(...)")

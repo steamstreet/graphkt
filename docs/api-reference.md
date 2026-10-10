@@ -39,6 +39,26 @@ graphKt {
 }
 ```
 
+Two modules can be generated from one schema into the same package, for example a client module and a server module. Both would write the same `common.kt` (input types, enums, scalar aliases, `serializerModule` and `json`), and Kotlin/Native refuses to link a binary that contains two copies. Let one module own the file and make the other depend on it:
+
+```kotlin
+// The module that owns common.kt, for example the server module.
+graphKt {
+    common {
+        publicDeclarations.set(true) // makes `json` public instead of internal
+    }
+}
+
+// The module that relies on it, which must depend on the module above.
+graphKt {
+    common {
+        enabled.set(false) // do not generate common.kt
+    }
+}
+```
+
+`common.enabled` defaults to `true` and `common.publicDeclarations` to `false`, which leaves the generated output unchanged. The same switches are `common` and `publicCommon` on `GenerationFeatures` for programmatic use.
+
 `schemaFiles` accepts files and directories. The task reads `.graphql` files from configured directories.
 
 `propertiesFile` configures custom scalar types and serializers:

@@ -26,6 +26,7 @@ internal class DataTypesGenerator(
     private val packageName: String,
     private val properties: Properties,
     private val outputDir: File,
+    private val publicJson: Boolean = false,
 ) {
 
     private val commonFile = FileSpec.builder(packageName, "common")
@@ -94,7 +95,7 @@ internal class DataTypesGenerator(
                 "json",
                 jsonSerializerType
             )
-                .addModifiers(KModifier.INTERNAL)
+                .addModifiers(if (publicJson) KModifier.PUBLIC else KModifier.INTERNAL)
                 .initializer(CodeBlock.builder().apply {
                     beginControlFlow("%T", jsonSerializerType)
                     if (serializers.isNotEmpty()) {

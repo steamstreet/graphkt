@@ -482,4 +482,45 @@ class GraphKtGeneratorTest {
             result.generatedFiles,
         )
     }
+
+    @Test
+    fun `shares common declarations between a client module and a server module`(@TempDir tempDir: File) {
+        val schema = File(tempDir, "schema.graphql").apply {
+            writeText("type Query { greeting: String! }")
+        }
+        val packageName = "com.steamstreet.graphkt.shared"
+        fun generate(name: String, features: GenerationFeatures): GenerationResult = GraphKtGenerator().generate(
+            GenerationRequest(
+                schemaFiles = listOf(schema),
+                packageName = packageName,
+                features = features,
+                outputs = GenerationOutputs(common = File(tempDir, name), server = File(tempDir, "$name-server")),
+            ),
+        )
+        fun commonFile(name: String) = File(tempDir, "$name/com/steamstreet/graphkt/shared/common.kt")
+
+        val defaults = generate("defaults", GenerationFeatures())
+        val explicitDefaults = generate("explicit", GenerationFeatures(common = true, publicCommon = false))
+        assertEquals(commonFile("defaults").readText(), commonFile("explicit").readText())
+        assertTrue(commonFile("defaults").readText().contains("internal val json"))
+        assertEquals(defaults.generatedFiles.size, explicitDefaults.generatedFiles.size)
+
+        val provider = generate(
+            "provider",
+            GenerationFeatures(client = false, server = true, publicCommon = true),
+        )
+        assertTrue(commonFile("provider").readText().contains("public val json"))
+        assertFalse(commonFile("provider").readText().contains("internal val json"))
+
+        val consumer = generate(
+            "consumer",
+            GenerationFeatures(client = true, server = false, common = false),
+        )
+        assertFalse(commonFile("consumer").exists())
+        assertTrue(consumer.generatedFiles.isNotEmpty())
+        assertTrue(
+            compileKotlinFiles(provider.generatedFiles + consumer.generatedFiles, tempDir),
+            "A client module without common.kt must compile against the one that provides it",
+        )
+    }
 }
