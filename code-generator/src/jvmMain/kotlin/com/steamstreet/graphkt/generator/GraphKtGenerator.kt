@@ -11,9 +11,21 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.util.Properties
 
+/**
+ * Selects what is generated.
+ *
+ * The shared declarations (`common.kt`: input types, enums, scalar aliases, `serializerModule`, and `json`) are
+ * needed by both client and server code. When two modules are generated from one schema into the same package,
+ * only one of them should generate them: set [common] to false in the other, and [publicCommon] to true in the
+ * one that does, so that the other can see `json`.
+ */
 public data class GenerationFeatures(
     val client: Boolean = true,
     val server: Boolean = true,
+    /** Generate `common.kt`. When false, the generated code relies on another module providing it. */
+    val common: Boolean = true,
+    /** Declare `json` as public rather than internal, for modules that share `common.kt` with another. */
+    val publicCommon: Boolean = false,
 )
 
 public data class GenerationOutputs(

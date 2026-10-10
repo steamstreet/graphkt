@@ -41,6 +41,12 @@ public abstract class GraphQLCodeGeneratorTask : DefaultTask() {
     @get:Input
     public abstract val generateServer: Property<Boolean>
 
+    @get:Input
+    public abstract val generateCommon: Property<Boolean>
+
+    @get:Input
+    public abstract val publicCommon: Property<Boolean>
+
     @get:OutputDirectory
     public abstract val generatedOutputDirectory: DirectoryProperty
 
@@ -76,6 +82,8 @@ public abstract class GraphQLCodeGeneratorTask : DefaultTask() {
                 features = GenerationFeatures(
                     client = generateClient.get(),
                     server = generateServer.get(),
+                    common = generateCommon.getOrElse(true),
+                    publicCommon = publicCommon.getOrElse(false),
                 ),
                 outputs = GenerationOutputs(
                     common = generatedOutputDirectory.get().asFile,

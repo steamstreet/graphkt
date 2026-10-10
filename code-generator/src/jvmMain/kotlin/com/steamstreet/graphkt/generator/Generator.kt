@@ -31,7 +31,9 @@ internal fun generateSources(
     outputs: GenerationOutputs,
 ) {
     outputs.common.mkdirs()
-    DataTypesGenerator(schemaModel, packageName, properties, outputs.common).execute()
+    if (features.common) {
+        DataTypesGenerator(schemaModel, packageName, properties, outputs.common, features.publicCommon).execute()
+    }
 
     if (features.client) {
         outputs.client.mkdirs()
