@@ -41,9 +41,14 @@ class GraphQLKtorOperationRouteTest {
 
         assertEquals("""{"data":{"a":"query:one","two":"query:one"}}""", client.post("""{"query":"{ a: one two: one }"}"""))
         assertEquals("""{"data":{"one":"mutation:one"}}""", client.post("""{"query":"mutation { one }"}"""))
+        // As in 3.0.2, the first operation runs even when the request names another.
         assertEquals(
-            """{"data":{"two":"query:two"}}""",
+            """{"data":{"one":"query:one"}}""",
             client.post("""{"query":"query A { one } query B { two }","operationName":"B"}"""),
+        )
+        assertEquals(
+            """{"data":{"one":"query:one"}}""",
+            client.get("/graphql?query=query%20A%7Bone%7Dquery%20B%7Btwo%7D&operationName=B").bodyAsText(),
         )
         assertEquals("""{"data":{"one":"query:one"}}""", client.post("""{"query":"query A { one } query B { two }"}"""))
         assertEquals(

@@ -239,7 +239,7 @@ val data = QueryResolver(context).gqlSelect(root)
 - Without an `operationName`, the document's first definition must be an operation, and it is used, as `parseGraphQLOperation` does. With a name, the operation of that name is used.
 - A document that cannot be parsed, or holds no operation to select, throws `IllegalArgumentException`.
 
-`Route.graphQL(errorFactory) { query { ... }; mutation { ... } }` in `server-ktor` is available in common code and builds its selections this way, so it also runs on Kotlin/Native.
+`Route.graphQL(errorFactory) { query { ... }; mutation { ... } }` in `server-ktor` is available in common code and builds its selections this way, so it also runs on Kotlin/Native. The route always runs the document's first operation and ignores the request's `operationName`, as it did before.
 
 ## Request scope and batching
 

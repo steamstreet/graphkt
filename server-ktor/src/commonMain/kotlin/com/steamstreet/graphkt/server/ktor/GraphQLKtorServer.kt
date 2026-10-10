@@ -114,15 +114,18 @@ public fun Route.graphQL(
 
     // As the JVM route did, the document is parsed outside the error envelope: a document that
     // cannot be parsed fails the request, where a request without a document gets the envelope.
+    //
+    // The request's operationName is not used: the route has always run the document's first
+    // operation, and a patch release must not change that.
     fun parse(
-        query: String?, variables: JsonObject?, operationName: String?, errors: MutableList<GraphQLError>,
+        query: String?, variables: JsonObject?, errors: MutableList<GraphQLError>,
     ): RequestOperation? = query?.let {
         RequestOperation.parse(
             query = it,
             variables = variables,
             errors = errors,
             errorFactory = errorFactory,
-            operationName = operationName,
+            operationName = null,
         )
     }
 
@@ -152,7 +155,6 @@ public fun Route.graphQL(
         val operation = parse(
             query = requestElement["query"]?.jsonPrimitive?.contentOrNull,
             variables = requestElement["variables"] as? JsonObject,
-            operationName = requestElement["operationName"]?.jsonPrimitive?.contentOrNull?.takeIf { it.isNotEmpty() },
             errors = errors,
         )
 
@@ -171,7 +173,6 @@ public fun Route.graphQL(
             variables = call.request.queryParameters["variables"]?.let {
                 json.parseToJsonElement(it) as? JsonObject
             },
-            operationName = call.request.queryParameters["operationName"]?.takeIf { it.isNotEmpty() },
             errors = errors,
         )
         invoke(call, operation, errors, queryGetter)
